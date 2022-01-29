@@ -9,6 +9,7 @@ using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.Extensions.VS;
 using Task = System.Threading.Tasks.Task;
 using System.ComponentModel.Design;
+using BuildContextTypes = Microsoft.VisualStudio.Workspace.Build.BuildContextTypes;
 using B2VS.VSPackage;
 
 namespace B2VS.Contexts
@@ -16,7 +17,11 @@ namespace B2VS.Contexts
     /// <summary>
     /// Action provider for build2 buildfiles.
     /// </summary>
-    [ExportFileContextActionProvider((FileContextActionProviderOptions)VsCommandActionProviderOptions.SupportVsCommands, ProviderType, ProviderPriority.Normal, PackageIds.BuildfileContextType)]
+    [ExportFileContextActionProvider(
+        (FileContextActionProviderOptions)VsCommandActionProviderOptions.SupportVsCommands,
+        ProviderType, 
+        ProviderPriority.Normal, 
+        PackageIds.BuildfileContextType, BuildContextTypes.BuildContextType, BuildContextTypes.BuildAllContextType)]
     internal class BuildfileActionProviderFactory : IWorkspaceProviderFactory<IFileContextActionProvider>, IVsCommandActionProvider
     {
         // Unique Guid for WordCountActionProvider.
@@ -43,6 +48,13 @@ namespace B2VS.Contexts
             private static readonly Guid ActionOutputWindowPane = new Guid("{9980E4F2-35AF-4EC5-940C-CE6AFA034FB7}");
             private IWorkspace workspaceContext;
 
+            // @NOTE: See https://docs.microsoft.com/en-us/visualstudio/extensibility/workspace-build?view=vs-2022
+            private const uint BuildCommandId = 0x1000;
+            private const uint RebuildCommandId = 0x1010;
+            private const uint CleanCommandId = 0x1020;
+            private const string BuildCommandGroupGuidStr = "16537f6e-cb14-44da-b087-d1387ce3bf57";
+            private static readonly Guid BuildCommandGroupGuid = new Guid(BuildCommandGroupGuidStr);
+
             internal BuildfileActionProvider(IWorkspace workspaceContext)
             {
                 this.workspaceContext = workspaceContext;
@@ -50,8 +62,10 @@ namespace B2VS.Contexts
 
             public Task<IReadOnlyList<IFileContextAction>> GetActionsAsync(string filePath, FileContext fileContext, CancellationToken cancellationToken)
             {
-                return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[]
+                if (fileContext.ContextType == PackageIds.BuildfileContextTypeGuid)
                 {
+                    return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[]
+                    {
                     // Test command:
                     new MyContextAction(
                         fileContext,
@@ -61,7 +75,39 @@ namespace B2VS.Contexts
                         {
                             await OutputWindowPaneAsync("Yup! " + fCtxt.Context.ToString() + "\n");
                         }),
-                });
+                    });
+                }
+
+                if (fileContext.ContextType == BuildContextTypes.BuildContextTypeGuid)
+                {
+                    return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] {
+                        // Build command:
+                        new MyContextAction(
+                            fileContext,
+                            new Tuple<Guid, uint>(BuildCommandGroupGuid, BuildCommandId),
+                            "", // @NOTE: Unused as the display name for the built int 'Build' action will be used.
+                            async (fCtxt, progress, ct) =>
+                            {
+                                await OutputWindowPaneAsync("(Not) Building...\n");
+                            }),
+                        });
+                }
+                //else if (fileContext.ContextType == BuildContextTypes.BuildAllContextTypeGuid)
+                //{
+                //    return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] {
+                //        // Build All command:
+                //        new MyContextAction(
+                //            fileContext,
+                //            new Tuple<Guid, uint>(BuildCommandGroupGuid, 0x1000), //BuildCommandId),
+                //            "???",
+                //            async (fCtxt, progress, ct) =>
+                //            {
+                //                await OutputWindowPaneAsync("(Not) Building all...\n");
+                //            }),
+                //        });
+                //}
+
+                throw new NotImplementedException();
             }
 
             internal static async Task OutputWindowPaneAsync(string message)

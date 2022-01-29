@@ -15,5 +15,6 @@ namespace B2VS.VSPackage
 
         // Guids to associate file context action factories.
         public const string BuildfileContextType = "F08A8F02-FF58-4DAD-B904-9257337B2BE2";
+        public static readonly Guid BuildfileContextTypeGuid = new Guid(BuildfileContextType);
     }
 }

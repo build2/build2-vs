@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Workspace;
 using Task = System.Threading.Tasks.Task;
+using BuildContextTypes = Microsoft.VisualStudio.Workspace.Build.BuildContextTypes;
 using B2VS.VSPackage;
 
 namespace B2VS.Contexts
@@ -11,11 +12,14 @@ namespace B2VS.Contexts
     /// <summary>
     /// File context provider for build2 buildfiles.
     /// </summary>
-    [ExportFileContextProvider(ProviderType, PackageIds.BuildfileContextType)]
+    [ExportFileContextProvider(
+        ProviderType,
+        PackageIds.BuildfileContextType, BuildContextTypes.BuildContextType)] //, BuildContextTypes.BuildAllContextType)]
     internal class BuildfileContextProviderFactory : IWorkspaceProviderFactory<IFileContextProvider>
     {
         // Unique Guid for BuildfileContextProvider.
         private const string ProviderType = "2CA5FBE7-6E60-4EFF-9AD9-9EA10A85BCB0";
+        private static readonly Guid ProviderTypeGuid = new Guid(ProviderType);
 
         /// <inheritdoc/>
         public IFileContextProvider CreateProvider(IWorkspace workspaceContext)
@@ -41,10 +45,22 @@ namespace B2VS.Contexts
                 if (filename.Equals("buildfile"))
                 {
                     fileContexts.Add(new FileContext(
-                        new Guid(ProviderType),
+                        ProviderTypeGuid,
                         new Guid(PackageIds.BuildfileContextType),
                         filePath,
-                        Array.Empty<string>()));
+                        new[] { filePath }));
+
+                    fileContexts.Add(new FileContext(
+                        ProviderTypeGuid,
+                        BuildContextTypes.BuildContextTypeGuid,
+                        new Build2BuildConfiguration(),
+                        new[] { filePath }));
+
+                    //fileContexts.Add(new FileContext(
+                    //    ProviderTypeGuid,
+                    //    BuildContextTypes.BuildAllContextTypeGuid,
+                    //    new Build2BuildConfiguration(),
+                    //    Array.Empty<string>()));
                 }
 
                 return await Task.FromResult(fileContexts.ToArray());
