@@ -46,6 +46,10 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Command1.cs" />
+    <Compile Include="Language\Buildfile\BuildfileClassifier.cs" />
+    <Compile Include="Language\Buildfile\BuildfileElementClassification.cs" />
+    <Compile Include="Language\Buildfile\BuildfileElementFormatting.cs" />
+    <Compile Include="Language\ContentTypes.cs" />
     <Compile Include="Contexts\Build2BuildConfiguration.cs" />
     <Compile Include="Contexts\BuildfileContextActionProvider.cs" />
     <Compile Include="Contexts\BuildfileContextProvider.cs" />
@@ -69,6 +73,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Text.Logic">
+      <Version>17.0.491</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.VisualStudio.Text.UI.Wpf">
+      <Version>17.0.491</Version>
+    </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Workspace">
       <Version>16.3.43</Version>
     </PackageReference>
