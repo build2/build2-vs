@@ -3,20 +3,30 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Workspace.Build;
+using BCLConfig = B2VS.Toolchain.Json.Bdep.Config.List.Configuration;
+using BSConfigStatus = B2VS.Toolchain.Json.Bdep.Status.ConfigurationPackageStatus;
 
 namespace B2VS.Toolchain
 {
     internal static class Build2Configs
     {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">Must be the exact path of a bdep project folder</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         internal static async Task<IReadOnlyCollection<Build2BuildConfiguration>> EnumerateBuildConfigsForProjectPathAsync(string path, CancellationToken cancellationToken)
         {
-            var configListOutput = new List<string>();
+            var configListOutput = "";
             {
-                var args = new string[] { "config", "list", "-d", path };
-                Action<string> outputHandler = (string line) => configListOutput.Add(line);
+                var args = new string[] { "config", "list", "--stdout-format", "json", "-d", path };
+                Action<string> outputHandler = (string line) => configListOutput += line;
                 var exitCode = await BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
                 if (exitCode != 0)
                 {
@@ -24,82 +34,54 @@ namespace B2VS.Toolchain
                 }
             }
 
-            Func<string, Build2BuildConfiguration> parseConfigInfo = (string info) =>
+            var configsJson = JsonSerializer.Deserialize<List<BCLConfig>>(configListOutput);
+            if (configsJson == null)
             {
-                // @NOTE: Quick hack. Doesn't look like output of bdep config list is reliably parsable (for example, if config dir paths have spaces).
-                var tokens = info.Split(new char[] { ' ' }, 3, StringSplitOptions.RemoveEmptyEntries);
-                if (tokens.Length == 0)
-                {
-                    return null;
-                }
-                if (tokens[0].First() == '@')
-                {
-                    if (tokens.Length < 2)
-                    {
-                        return null;
-                    }
-                    return new Build2BuildConfiguration(tokens[0].Substring(1), tokens[1]);
-                }
-                else
-                {
-                    return new Build2BuildConfiguration(tokens[0], tokens[0]);
-                }
-            };
-
-            return configListOutput.Select(parseConfigInfo).Where(cfg => cfg != null).ToList();
-        }
-
-        internal static async Task<IReadOnlyList<T>> FilterUnorderedAsync<T>(
-            this IEnumerable<T> source, Func<T, Task<bool>> predicate)
-        {
-            var results = new ConcurrentQueue<T>();
-            var tasks = source.Select(
-                async x =>
-                {
-                    if (await predicate(x))
-                        results.Enqueue(x);
-                });
-            // Force serialized calls in debug builds to keep things simple.
-#if DEBUG
-            foreach (var t in tasks)
-            {
-                await t;
+                throw new Exception("'bdep config list' json output not parseable");
             }
-#else
-            await Task.WhenAll(tasks);
-#endif
-            return results.ToList();
-        }
 
-        internal static async Task<IReadOnlyCollection<Build2BuildConfiguration>> FilterBuildConfigsForPackagePathAsync(
-            IEnumerable<Build2BuildConfiguration> projectConfigs, 
-            string path, 
-            CancellationToken cancellationToken)
-        {
-            Func<Build2BuildConfiguration, Task<bool>> isPackageInConfig = async (Build2BuildConfiguration cfg) =>
+            Func<BCLConfig, Build2BuildConfiguration> convertConfig = (BCLConfig configJson) =>
             {
-                var args = new string[] { "status", "-d", path, "-c", cfg.ConfigDir };
-                Action<string> outputHandler = (string line) => { System.Console.WriteLine(String.Format("'bdep {0}': {1}", args, line)); };
-                try
-                {
-                    var exitCode = await BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
-                    return exitCode == 0;
-                }
-                catch (Exception e)
-                {
-                    return false;
-                }
+                return new Build2BuildConfiguration(configJson.name ?? configJson.path, configJson.path);
             };
-            return await projectConfigs.FilterUnorderedAsync(isPackageInConfig);
+
+            return configsJson.Select(convertConfig).ToList();
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="packagePath">Must be the exact path of a package folder within a bdep project</param>
+        /// <param name="cancellationToken"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         internal static async Task<IReadOnlyCollection<Build2BuildConfiguration>> EnumerateBuildConfigsForPackagePathAsync(
-            string projectPath,
             string packagePath,
             CancellationToken cancellationToken)
         {
-            var projectConfigs = await EnumerateBuildConfigsForProjectPathAsync(projectPath, cancellationToken);
-            return await FilterBuildConfigsForPackagePathAsync(projectConfigs, packagePath, cancellationToken);
+            var jsonOutput = "";
+            {
+                var args = new string[] { "status", "-d", packagePath, "-a", "--stdout-format", "json" };
+                Action<string> outputHandler = (string line) => jsonOutput += line;
+                var exitCode = await BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
+                if (exitCode != 0)
+                {
+                    throw new Exception("'bdep status' failed");
+                }
+            }
+
+            var configStatusesJson = JsonSerializer.Deserialize<List<BSConfigStatus>>(jsonOutput);
+            if (configStatusesJson == null)
+            {
+                throw new Exception("'bdep status' json output not parseable");
+            }
+
+            Func<BSConfigStatus, Build2BuildConfiguration> convertConfigStatus = (BSConfigStatus configStatusJson) =>
+            {
+                return new Build2BuildConfiguration(configStatusJson.configuration.name ?? configStatusJson.configuration.path, configStatusJson.configuration.path);
+            };
+
+            return configStatusesJson.Select(convertConfigStatus).ToList();
         }
     }
 }

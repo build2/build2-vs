@@ -68,7 +68,7 @@ namespace B2VS.Contexts
 
                 // Ask bdep for the configurations this package is initialized in, and index them.
                 var packagePath = Path.GetDirectoryName(filePath);
-                var configs = await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(workspaceContext.Location, packagePath, cancellationToken);
+                var configs = await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(packagePath, cancellationToken);
                 results.AddRange(configs.Select(cfg => new FileDataValue(
                     PackageIds.Build2ConfigDataValueTypeGuid,
                     PackageIds.Build2ConfigDataValueName,
