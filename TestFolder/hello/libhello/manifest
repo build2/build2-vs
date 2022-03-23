@@ -1,0 +1,13 @@
+: 1
+name: libhello
+version: 0.1.0-a.0.z
+project: hello
+summary: hello C++ library
+license: other: proprietary ; Not free/open source.
+description-file: README.md
+url: https://example.org/hello
+email: cjangus@gmail.com
+#build-error-email: cjangus@gmail.com
+depends: * build2 >= 0.13.0
+depends: * bpkg >= 0.13.0
+#depends: libhello ^1.0.0
