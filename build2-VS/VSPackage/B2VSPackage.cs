@@ -1,4 +1,5 @@
 ﻿using Microsoft.VisualStudio.Shell;
+//using Microsoft.VisualStudio.Shell.Interop;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -26,7 +27,7 @@ namespace B2VS.VSPackage
     [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
     [Guid(B2VSPackage.PackageGuidString)]
     [ProvideMenuResource("Menus.ctmenu", 1)]
-    public sealed class B2VSPackage : AsyncPackage
+    public sealed class B2VSPackage : AsyncPackage//, IVsSolutionEvents7 <- supposedly allows listening for folder open/close, but errors...
     {
         /// <summary>
         /// Build2VSPackage GUID string.

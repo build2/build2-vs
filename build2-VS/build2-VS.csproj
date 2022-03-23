@@ -45,18 +45,32 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Build2Constants.cs" />
+    <Compile Include="Contexts\PackageManifestContextProvider.cs" />
+    <Compile Include="Contexts\PackageManifestScanner.cs" />
+    <Compile Include="ProjectModel\Project.cs" />
+    <Compile Include="ProjectModel\ProjectConfigUtils.cs" />
+    <Compile Include="ProjectModel\ProjectPackage.cs" />
     <Compile Include="Command1.cs" />
+    <Compile Include="Contexts\PackageListManifestScanner.cs" />
     <Compile Include="Language\Buildfile\BuildfileClassifier.cs" />
     <Compile Include="Language\Buildfile\BuildfileElementClassification.cs" />
     <Compile Include="Language\Buildfile\BuildfileElementFormatting.cs" />
     <Compile Include="Language\ContentTypes.cs" />
-    <Compile Include="Contexts\Build2BuildConfiguration.cs" />
+    <Compile Include="Language\Manifest\Build2Manifest.cs" />
+    <Compile Include="Parsing\ManifestParser.cs" />
+    <Compile Include="Toolchain\Build2BuildConfiguration.cs" />
     <Compile Include="Contexts\BuildfileContextActionProvider.cs" />
     <Compile Include="Contexts\BuildfileContextProvider.cs" />
     <Compile Include="Contexts\BuildfileScanner.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Toolchain\Build2Configs.cs" />
+    <Compile Include="Toolchain\Build2Toolchain.cs" />
+    <Compile Include="Utilities\OutputUtils.cs" />
+    <Compile Include="Utilities\PathUtils.cs" />
     <Compile Include="VSPackage\B2VSPackage.cs" />
     <Compile Include="VSPackage\PackageIds.cs" />
+    <Compile Include="Workspace\Build2Workspace.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest">
@@ -110,6 +124,7 @@
   <ItemGroup>
     <Content Include="Resources\Command1.png" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="'$(VSToolsPath)' != ''" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it.

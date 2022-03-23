@@ -2,15 +2,16 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio;
-using Microsoft.VisualStudio.Shell;
-using Microsoft.VisualStudio.Shell.Interop;
 using Microsoft.VisualStudio.Workspace;
+using Microsoft.VisualStudio.Workspace.Build;
+using Microsoft.VisualStudio.Workspace.Indexing;
 using Microsoft.VisualStudio.Workspace.Extensions.VS;
+using Microsoft.VisualStudio.Shell;
 using Task = System.Threading.Tasks.Task;
 using System.ComponentModel.Design;
 using BuildContextTypes = Microsoft.VisualStudio.Workspace.Build.BuildContextTypes;
 using B2VS.VSPackage;
+using B2VS.Workspace;
 
 namespace B2VS.Contexts
 {
@@ -45,7 +46,6 @@ namespace B2VS.Contexts
 
         internal class BuildfileActionProvider : IFileContextActionProvider
         {
-            private static readonly Guid ActionOutputWindowPane = new Guid("{9980E4F2-35AF-4EC5-940C-CE6AFA034FB7}");
             private IWorkspace workspaceContext;
 
             // @NOTE: See https://docs.microsoft.com/en-us/visualstudio/extensibility/workspace-build?view=vs-2022
@@ -58,6 +58,19 @@ namespace B2VS.Contexts
             internal BuildfileActionProvider(IWorkspace workspaceContext)
             {
                 this.workspaceContext = workspaceContext;
+
+                //
+                ThreadHelper.JoinableTaskFactory.Run(async delegate {
+                    var configService = await workspaceContext.GetProjectConfigurationServiceAsync();
+                    configService.OnBuildConfigurationChanged += async (object sender, BuildConfigurationChangedEventArgs args) =>
+                    {
+                        await OutputUtils.OutputWindowPaneAsync(String.Format("BuildConfigChanged! Config={0}, TargetFilePath={1}, Target={2}",
+                            args.BuildConfiguration,
+                            args.ProjectTargetFileContext.FilePath,
+                            args.ProjectTargetFileContext.Target));
+                    };
+                });
+                //
             }
 
             public Task<IReadOnlyList<IFileContextAction>> GetActionsAsync(string filePath, FileContext fileContext, CancellationToken cancellationToken)
@@ -73,13 +86,33 @@ namespace B2VS.Contexts
                         "Looks like a buildfile...", //+ fileContext.DisplayName,
                         async (fCtxt, progress, ct) =>
                         {
-                            await OutputWindowPaneAsync("Yup! " + fCtxt.Context.ToString() + "\n");
+                            await OutputUtils.OutputWindowPaneAsync("Yup! " + fCtxt.Context.ToString());
+
+                            //var configService = await workspaceContext.GetProjectConfigurationServiceAsync();
+                            //string curProjectMsg = configService.CurrentProject != null ?
+                            //    String.Format("Current project: Path={0}, Target={1}", configService.CurrentProject.FilePath, configService.CurrentProject.Target) :
+                            //    "No current project";
+                            //await OutputUtils.OutputWindowPaneAsync(curProjectMsg);
+                            //string temp = String.Format("{0} configurations:\n", configService.AllProjectFileConfigurations.Count);
+                            //foreach (var cfg in configService.AllProjectFileConfigurations)
+                            //{
+                            //    temp += string.Format("{0} | {1}\n", cfg.FilePath, cfg.Target);
+                            //}
+                            //await OutputUtils.OutputWindowPaneRawAsync(temp);
+
+                            return true;
                         }),
                     });
                 }
 
                 if (fileContext.ContextType == BuildContextTypes.BuildContextTypeGuid)
                 {
+                    var buildCtx = fileContext.Context as Toolchain.ContextualBuildConfiguration;
+                    if (buildCtx == null)
+                    {
+                        return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] { });
+                    }
+                    
                     return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] {
                         // Build command:
                         new MyContextAction(
@@ -88,7 +121,15 @@ namespace B2VS.Contexts
                             "", // @NOTE: Unused as the display name for the built int 'Build' action will be used.
                             async (fCtxt, progress, ct) =>
                             {
-                                await OutputWindowPaneAsync("(Not) Building...\n");
+                                var args = new string[] {
+                                    "--verbose=2",
+                                    "update",
+                                    "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
+                                    "-d", buildCtx.TargetPath,
+                                };
+                                Action<string> outputHandler = (string line) => OutputSimpleBuildMessage(workspaceContext, line + "\n");
+                                var exitCode = await Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdErrHandler: outputHandler); //.ConfigureAwait(false);
+                                return exitCode == 0;
                             }),
                         });
                 }
@@ -102,7 +143,7 @@ namespace B2VS.Contexts
                 //            "???",
                 //            async (fCtxt, progress, ct) =>
                 //            {
-                //                await OutputWindowPaneAsync("(Not) Building all...\n");
+                //                await OutputWindowPaneAsync("(Not) Building all...");
                 //            }),
                 //        });
                 //}
@@ -110,29 +151,22 @@ namespace B2VS.Contexts
                 throw new NotImplementedException();
             }
 
-            internal static async Task OutputWindowPaneAsync(string message)
+            internal static void OutputBuildMessage(IWorkspace workspace, BuildMessage message)
             {
-                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+                IBuildMessageService buildMessageService = workspace.GetBuildMessageService();
 
-                IVsOutputWindowPane outputPane = null;
-                var outputWindow = ServiceProvider.GlobalProvider.GetService(typeof(SVsOutputWindow)) as IVsOutputWindow;
-                if (outputWindow != null && ErrorHandler.Failed(outputWindow.GetPane(ActionOutputWindowPane, out outputPane)))
+                if (buildMessageService != null)
                 {
-                    IVsWindowFrame windowFrame;
-                    var vsUiShell = ServiceProvider.GlobalProvider.GetService(typeof(SVsUIShell)) as IVsUIShell;
-                    if (vsUiShell != null)
-                    {
-                        uint flags = (uint)__VSFINDTOOLWIN.FTW_fForceCreate;
-                        vsUiShell.FindToolWindow(flags, VSConstants.StandardToolWindows.Output, out windowFrame);
-                        windowFrame.Show();
-                    }
-
-                    outputWindow.CreatePane(ActionOutputWindowPane, "build2", 1, 1);
-                    outputWindow.GetPane(ActionOutputWindowPane, out outputPane);
-                    outputPane.Activate();
+                    buildMessageService.ReportBuildMessages(new BuildMessage[] { message });
                 }
+            }
 
-                outputPane?.OutputStringThreadSafe(message);
+            internal static void OutputSimpleBuildMessage(IWorkspace workspace, string message)
+            {
+                OutputBuildMessage(workspace, new BuildMessage() {
+                    Type = BuildMessage.TaskType.None, // Error,
+                    LogMessage = message
+                    });
             }
 
             internal class MyContextAction : IFileContextAction, IVsCommandItem
@@ -141,7 +175,7 @@ namespace B2VS.Contexts
                     FileContext fileContext,
                     Tuple<Guid, uint> command,
                     string displayName,
-                    Func<FileContext, IProgress<IFileContextActionProgressUpdate>, CancellationToken, Task> executeAction)
+                    Func<FileContext, IProgress<IFileContextActionProgressUpdate>, CancellationToken, Task<bool>> executeAction)
                 {
                     this.CommandGroup = command.Item1;
                     this.CommandId = command.Item2;
@@ -161,12 +195,12 @@ namespace B2VS.Contexts
 
                 public async Task<IFileContextActionResult> ExecuteAsync(IProgress<IFileContextActionProgressUpdate> progress, CancellationToken cancellationToken)
                 {
-                    await this.executeAction(this.Source, progress, cancellationToken);
-                    return new FileContextActionResult(true);
+                    bool result = await this.executeAction(this.Source, progress, cancellationToken);
+                    return new FileContextActionResult(result);
                 }
                 // End IFileContextAction interface
 
-                private Func<FileContext, IProgress<IFileContextActionProgressUpdate>, CancellationToken, Task> executeAction;
+                private Func<FileContext, IProgress<IFileContextActionProgressUpdate>, CancellationToken, Task<bool>> executeAction;
             }
         }
     }

@@ -29,7 +29,7 @@ namespace B2VS.Language
         internal static FileExtensionToContentTypeDefinition buildfileLikeExtensionDefinition = null;
 
         [Export]
-        [FileName("buildfile")] // Matches only 'buildfile' exactly
+        [FileName(Build2Constants.BuildfileFilename)] // Matches only 'buildfile' exactly
         [ContentType("buildfile")]
         internal static FileExtensionToContentTypeDefinition buildfileExtensionDefinition = null;
     }
