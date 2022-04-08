@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.Build;
 using Microsoft.VisualStudio.Workspace.Indexing;
@@ -16,6 +17,11 @@ using BuildContextTypes = Microsoft.VisualStudio.Workspace.Build.BuildContextTyp
 using B2VS.VSPackage;
 using B2VS.Toolchain;
 using B2VS.Language.Manifest;
+using B2VS.Utilities;
+
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 
 namespace B2VS.Contexts
 {
@@ -46,6 +52,44 @@ namespace B2VS.Contexts
         public IReadOnlyCollection<CommandID> GetSupportedVsCommands()
         {
             return SupportedCommands;
+        }
+
+/*        internal class TempModuleDependency
+        {
+            [JsonPropertyName("id")]
+            public string Id { get; set; }
+            [JsonPropertyName("type")]
+            public int Type { get; set; }
+            [JsonPropertyName("propagation")]
+            public int Propagation { get; set; }
+
+            public TempModuleDependency(string name)
+            {
+                Name = name;
+                Type = 0;
+                Propagation = 0;
+            }
+        }
+*/
+        internal class TempModuleEntry
+        {
+            [JsonPropertyName("id")]
+            public string Id { get; set; }
+            //[JsonPropertyName("location")]
+            //public string Location { get; set; }
+            //[JsonPropertyName("type")]
+            //public string Type { get; set; }
+            [JsonPropertyName("parentIds")]
+            public List<string> ParentIds { get; set; }
+
+            public TempModuleEntry(string name, IEnumerable<string> deps)
+            {
+                //Name = name;
+                Id = name;
+                //Location = "PROJECT";
+                //Type = "RUNTIME";
+                ParentIds = deps.ToList();
+            }
         }
 
         internal class BuildfileActionProvider : IFileContextActionProvider
@@ -216,6 +260,70 @@ namespace B2VS.Contexts
                             //    temp += string.Format("{0} | {1}\n", cfg.FilePath, cfg.Target);
                             //}
                             //await OutputUtils.OutputWindowPaneRawAsync(temp);
+
+                            return true;
+                        }),
+
+                    new MyContextAction(
+                        fileContext,
+                        new Tuple<Guid, uint>(ProviderCommandGroup, PackageIds.GenerateDependenciesCmdId),
+                        "Generate Dependencies",
+                        async (fCtxt, progress, ct) =>
+                        {
+                            var ctxFilePath = fCtxt.Context as string;
+                            var args = new string[] {
+                                "update",
+                                // @todo: for now just assuming default config
+                                //"-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
+                                // @todo: ideally do a b -n {clean update} on the precise target. for now, assuming whole project.
+                                "-d", Path.GetDirectoryName(ctxFilePath), //workspaceContext.Location,
+                            };
+                            var dependencyMap = new Dictionary<string, HashSet<string>>();
+                            Action<string> outputHandler = (string line) =>
+                            {
+                                const string rxTemplateStr = @".+: {0}\[(.+)\]: (.+)";
+                                var rxPublic = new Regex(string.Format(rxTemplateStr, "public"), RegexOptions.Compiled);
+                                var rxPrivate = new Regex(string.Format(rxTemplateStr, "private"), RegexOptions.Compiled);
+                                var rxTarget = new Regex(@".+{(.+)}", RegexOptions.Compiled);
+
+                                bool isPublic = true;
+                                var matches = rxPublic.Matches(line);
+                                if (matches.Count == 0)
+                                {
+                                    isPublic = false;
+                                    matches = rxPrivate.Matches(line);
+                                }
+
+                                if (matches.Count > 0)
+                                {
+                                    if (matches.Count != 1)
+                                    {
+                                        throw new Exception("??");
+                                    }
+                                    var groups = matches[0].Groups;
+                                    if (groups.Count == 3)
+                                    {
+                                        var libName = groups[1].Value;
+                                        var dependenciesString = groups[2].Value;
+                                        string[] dependencyTargets = dependenciesString.Split(' ');
+                                        var dependencyNames = dependencyTargets.Select(tgt => rxTarget.Match(tgt).Groups[1].Value);
+
+                                        var libDeps = dependencyMap.GetOrCreate(libName);
+                                        libDeps.UnionWith(dependencyNames);
+                                    }
+                                }
+                            };
+                            var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdErrHandler: outputHandler);
+                            if (exitCode != 0)
+                            {
+                                return false;
+                            }
+
+                            //await OutputUtils.OutputWindowPaneAsync(dependencyMap.ToString());
+
+                            var jsonRep = dependencyMap.Select(kv => new TempModuleEntry(kv.Key, kv.Value)); //kv.Value.Select(dep => new TempModuleDependency(dep)))).ToList();
+                            var jsonStr = JsonSerializer.Serialize(jsonRep);
+                            System.IO.File.WriteAllText("D:/temp-deps.json", jsonStr);
 
                             return true;
                         }),

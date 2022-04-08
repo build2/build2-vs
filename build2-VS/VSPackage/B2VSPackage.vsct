@@ -61,6 +61,14 @@
           <ButtonText>Looks like a buildfile...</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidBuild2GeneralCmdSet" id="GenerateDependenciesCmdId" priority="0x0100" type="Button">
+        <Parent guid="guidBuild2GeneralCmdSet" id="MyMenuGroup" />
+        <!-- <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultInvisible</CommandFlag> -->
+        <Strings>
+          <ButtonText>Generate Dependencies</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
 
     <!--The bitmaps section is used to define the bitmaps that are used for the commands.-->
@@ -87,7 +95,7 @@
     <GuidSymbol name="guidBuild2GeneralCmdSet" value="{AE05FE3E-FF47-42B2-B5B2-6BE612927573}">
       <IDSymbol name="MyMenuGroup" value="0x1020" />
       <IDSymbol name="TestCmdId" value="0x0101" />
-      <!-- <IDSymbol name="WordCountToggleId" value="0x0102" /> -->
+      <IDSymbol name="GenerateDependenciesCmdId" value="0x0102" />
     </GuidSymbol>
 
     <!--<GuidSymbol name="guidImages" value="{2320d8cb-5f2f-4c20-af58-1877e2b1d14a}" >
