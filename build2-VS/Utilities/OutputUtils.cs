@@ -14,13 +14,14 @@ namespace B2VS
     internal class OutputUtils
     {
         private static readonly Guid Build2OutputWindowPane = new Guid("{9980E4F2-35AF-4EC5-940C-CE6AFA034FB7}");
-        internal static async Task OutputWindowPaneRawAsync(string message)
+
+        internal static IVsOutputWindowPane GetOutputWindowPane(Guid paneGuid, string nameToCreate = null)
         {
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+            ThreadHelper.ThrowIfNotOnUIThread();
 
             IVsOutputWindowPane outputPane = null;
             var outputWindow = ServiceProvider.GlobalProvider.GetService(typeof(SVsOutputWindow)) as IVsOutputWindow;
-            if (outputWindow != null && ErrorHandler.Failed(outputWindow.GetPane(Build2OutputWindowPane, out outputPane)))
+            if (outputWindow != null && ErrorHandler.Failed(outputWindow.GetPane(paneGuid, out outputPane)) && nameToCreate != null)
             {
                 IVsWindowFrame windowFrame;
                 var vsUiShell = ServiceProvider.GlobalProvider.GetService(typeof(SVsUIShell)) as IVsUIShell;
@@ -31,17 +32,38 @@ namespace B2VS
                     windowFrame.Show();
                 }
 
-                outputWindow.CreatePane(Build2OutputWindowPane, "build2", 1, 1);
-                outputWindow.GetPane(Build2OutputWindowPane, out outputPane);
+                outputWindow.CreatePane(paneGuid, nameToCreate, 1, 1);
+                outputWindow.GetPane(paneGuid, out outputPane);
                 outputPane.Activate();
             }
 
-            outputPane?.OutputStringThreadSafe(message);
+            return outputPane;
+        }
+
+        internal static IVsOutputWindowPane GetBuild2CustomOutputPane()
+        {
+            return GetOutputWindowPane(Build2OutputWindowPane, "build2");
+        }
+
+        internal static async Task OutputWindowPaneRawAsync(string message)
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var pane = GetBuild2CustomOutputPane();
+            pane?.OutputStringThreadSafe(message);
         }
 
         internal static async Task OutputWindowPaneAsync(string message)
         {
             await OutputWindowPaneRawAsync(message + "\n");
+        }
+
+        internal static async Task ClearBuildOutputPaneAsync()
+        {
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            var pane = GetOutputWindowPane(VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid);
+            pane?.Clear();            
         }
     }
 }

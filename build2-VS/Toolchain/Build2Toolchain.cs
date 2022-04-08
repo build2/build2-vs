@@ -9,23 +9,6 @@ using Microsoft.VisualStudio.Threading;
 
 namespace B2VS.Toolchain
 {
-    internal static class Build2Toolchain
-    {
-        //static string ToolchainBinDir { get { return ""; } }
-        public static string B_Executable { get { return "b"; } }
-        public static string BPkg_Executable { get { return "bpkg"; } }
-        public static string BDep_Executable { get { return "bdep"; } }
-
-        public static Action<string> DebugHandler { get; set; }
-
-        static Build2Toolchain()
-        {
-#if true //DEBUG
-            DebugHandler = (string line) => OutputUtils.OutputWindowPaneAsync(line);
-#endif
-        }
-    }
-
     //public enum OutStreamId
     //{
     //    None,
@@ -33,8 +16,15 @@ namespace B2VS.Toolchain
     //    StdErr,
     //}
 
-    internal static class BDep
+    internal class Build2Tool
     {
+        string ToolName { get; }
+
+        public Build2Tool(string toolName)
+        {
+            this.ToolName = toolName;
+        }
+        
         internal class OutputStreamContext
         {
             public System.IO.StreamReader stream;
@@ -55,9 +45,9 @@ namespace B2VS.Toolchain
         /// <param name="stdOutHandler"></param>
         /// <param name="stdErrHandler"></param>
         /// <returns></returns>
-        private static async Task<int> InternalInvokeAsync(IEnumerable< string > args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
+        private async Task<int> InternalInvokeAsync(IEnumerable< string > args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
         {
-            var startInfo = new ProcessStartInfo(Build2Toolchain.BDep_Executable);
+            var startInfo = new ProcessStartInfo(ToolName);
             startInfo.UseShellExecute = false;
             startInfo.Arguments = String.Join(" ", args);
             if (stdOutHandler != null || Build2Toolchain.DebugHandler != null)
@@ -170,7 +160,7 @@ namespace B2VS.Toolchain
         //private static SerializedTaskQueue serializedQueue = new SerializedTaskQueue();
         private static NonConcurrentSynchronizationContext nonConcurrentContext = new NonConcurrentSynchronizationContext(true); // Sticky=true important to ensure that code following first await will also run on the non-concurrent context.
 
-        public static async Task<int> InvokeQueuedAsync(IEnumerable<string> args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
+        public async Task<int> InvokeQueuedAsync(IEnumerable<string> args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
         {
             //return serializedQueue.EnqueueAsync<int>(() => InternalInvokeAsync(args, cancellationToken, stdOutHandler, stdErrHandler));
 
@@ -179,6 +169,31 @@ namespace B2VS.Toolchain
             //nonConcurrentContext.Post((object state) => { task.RunSynchronously(); }, null);
             //return task;
             return await task;
+        }
+    }
+
+    internal static class Build2Toolchain
+    {
+        //static string ToolchainBinDir { get { return ""; } }
+        static string B_Executable { get { return "b"; } }
+        static string BPkg_Executable { get { return "bpkg"; } }
+        static string BDep_Executable { get { return "bdep"; } }
+
+        public static Action<string> DebugHandler { get; set; }
+
+        public static Build2Tool B { get; }
+        public static Build2Tool BPkg { get; }
+        public static Build2Tool BDep { get; }
+
+        static Build2Toolchain()
+        {
+            B = new Build2Tool(B_Executable);
+            BPkg = new Build2Tool(BPkg_Executable);
+            BDep = new Build2Tool(BDep_Executable);
+
+#if true //DEBUG
+            DebugHandler = (string line) => OutputUtils.OutputWindowPaneAsync(line);
+#endif
         }
     }
 }

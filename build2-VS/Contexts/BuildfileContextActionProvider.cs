@@ -11,7 +11,7 @@ using Task = System.Threading.Tasks.Task;
 using System.ComponentModel.Design;
 using BuildContextTypes = Microsoft.VisualStudio.Workspace.Build.BuildContextTypes;
 using B2VS.VSPackage;
-using B2VS.Workspace;
+using B2VS.Toolchain;
 
 namespace B2VS.Contexts
 {
@@ -121,6 +121,8 @@ namespace B2VS.Contexts
                             "", // @NOTE: Unused as the display name for the built int 'Build' action will be used.
                             async (fCtxt, progress, ct) =>
                             {
+                                OutputUtils.ClearBuildOutputPaneAsync();
+
                                 var args = new string[] {
                                     "--verbose=2",
                                     "update",
@@ -128,7 +130,7 @@ namespace B2VS.Contexts
                                     "-d", buildCtx.TargetPath,
                                 };
                                 Action<string> outputHandler = (string line) => OutputSimpleBuildMessage(workspaceContext, line + "\n");
-                                var exitCode = await Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdErrHandler: outputHandler); //.ConfigureAwait(false);
+                                var exitCode = await Toolchain.Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdErrHandler: outputHandler); //.ConfigureAwait(false);
                                 return exitCode == 0;
                             }),
                         });

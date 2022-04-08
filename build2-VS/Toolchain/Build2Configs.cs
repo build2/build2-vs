@@ -27,7 +27,7 @@ namespace B2VS.Toolchain
             {
                 var args = new string[] { "config", "list", "--stdout-format", "json", "-d", path };
                 Action<string> outputHandler = (string line) => configListOutput += line;
-                var exitCode = await BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
+                var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
                 if (exitCode != 0)
                 {
                     throw new Exception("'bdep config list' failed");
@@ -63,7 +63,7 @@ namespace B2VS.Toolchain
             {
                 var args = new string[] { "status", "-d", packagePath, "-a", "--stdout-format", "json" };
                 Action<string> outputHandler = (string line) => jsonOutput += line;
-                var exitCode = await BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
+                var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
                 if (exitCode != 0)
                 {
                     throw new Exception("'bdep status' failed");
