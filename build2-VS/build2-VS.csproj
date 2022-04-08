@@ -64,6 +64,7 @@
     <Compile Include="Contexts\BuildfileContextProvider.cs" />
     <Compile Include="Contexts\BuildfileScanner.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Toolchain\Build2CompileCommands.cs" />
     <Compile Include="Toolchain\Build2Configs.cs" />
     <Compile Include="Toolchain\Build2Toolchain.cs" />
     <Compile Include="Toolchain\Json\Build2Json.cs" />
