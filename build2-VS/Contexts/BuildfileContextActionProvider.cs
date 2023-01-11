@@ -153,7 +153,7 @@ namespace B2VS.Contexts
                         "-d", buildCtx.TargetPath,
                     });
                     return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] {
-                        CreateMultiBuildAction(BuildCommandId, cmds),
+                        CreateMultiBuildAction(RebuildCommandId, cmds),
                         });
                 }
                 else if (fileContext.ContextType == BuildContextTypes.CleanContextTypeGuid)
