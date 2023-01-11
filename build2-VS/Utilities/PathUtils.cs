@@ -9,6 +9,13 @@ namespace B2VS
 {
     internal static class PathUtils
     {
+        public static string NormalizePath(string path)
+        {
+            return Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .ToUpperInvariant();
+        }
+
         /// <summary>
         /// Creates a relative path from one file or folder to another.
         /// </summary>

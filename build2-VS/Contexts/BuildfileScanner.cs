@@ -10,6 +10,9 @@ using Microsoft.VisualStudio.Workspace.Indexing;
 using B2VS.Toolchain;
 using B2VS.Workspace;
 using B2VS.ProjectModel;
+using Microsoft.VisualStudio.Workspace.Debug;
+using System.Windows.Documents;
+using B2VS.VSPackage;
 
 namespace B2VS.Contexts
 {
@@ -22,7 +25,8 @@ namespace B2VS.Contexts
         ProviderType,
         "build2 buildfile",
         new String[] { Build2Constants.BuildfileFilename },
-        new Type[] { typeof(IReadOnlyCollection<FileDataValue>) })]
+        new Type[] { typeof(IReadOnlyCollection<FileDataValue>) } //, typeof(IReadOnlyCollection<FileReferenceInfo>) }
+        )]
     class BuildfileScannerFactory : IWorkspaceProviderFactory<IFileScanner>
     {
         // Unique Guid for BuildfileScanner.
@@ -40,20 +44,6 @@ namespace B2VS.Contexts
             internal BuildfileScanner(IWorkspace workspaceContext)
             {
                 this.workspaceContext = workspaceContext;
-
-                // No idea if this is a good place for this, or if there's some more intended way to register a dependency so we get auto-refreshed
-                // whenever some other file context is updated.
-                var indexService = workspaceContext.GetIndexWorkspaceService();
-                indexService.OnFileScannerCompleted += async (object sender, FileScannerEventArgs args) =>
-                {
-                    if (args.WorkspaceFilePath == Build2Constants.PackageListManifestFilename)
-                    {
-                        //OutputUtils.OutputWindowPaneAsync("BuildfileScanner: Purging scanned data due to change to scan completion of packages.manifest.");
-                        /* but why await? */ indexService.PurgeFileScannerDataForProvider(new Guid(ProviderType));
-                        //todo: nothing seems to work.
-                        //maybe indexService.RefreshElementAsync would, but then we'd need to store all file paths processed, which seems wrong...
-                    }
-                };
             }
 
             public async Task<T> ScanContentAsync<T>(string filePath, CancellationToken cancellationToken)
@@ -61,79 +51,118 @@ namespace B2VS.Contexts
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (typeof(T) != FileScannerTypeConstants.FileDataValuesType)
+                var relativePath = workspaceContext.MakeRelative(filePath);
+                OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner [{0}] invoked for: {1}", typeof(T), relativePath));
+
+                if (typeof(T) == FileScannerTypeConstants.FileDataValuesType)
+                {
+                    var indexService = workspaceContext.GetIndexWorkspaceService();
+
+                    //using (StreamReader rdr = new StreamReader(filePath))
+                    //{
+                    //}
+
+                    var results = new List<FileDataValue>();
+
+                    void AddStartupItem(string name)
+                    {
+                        IPropertySettings launchSettings = new PropertySettings
+                        {
+                            [LaunchConfigurationConstants.NameKey] = name,
+                            //[LaunchConfigurationConstants.DebugTypeKey] = LaunchConfigurationConstants.NativeOptionKey,
+                            //[LaunchConfigurationConstants.ProgramKey] = binTarget,
+                        };
+                        results.Add(new FileDataValue(
+                            DebugLaunchActionContext.ContextTypeGuid,
+                            DebugLaunchActionContext.IsDefaultStartupProjectEntry,
+                            value: launchSettings,
+                            target: null/*outFile*/));
+                    }
+
+                    // Determine containing package
+
+                    var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath);
+                    if (packagePath != null)
+                    {
+                        // Grab cached build configurations for our package
+                        var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
+
+                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathAsync(packagePath, workspaceContext);
+                        results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
+                            BuildConfigurationContext.ContextTypeGuid,
+                            BuildConfigurationContext.DataValueName,
+                            value: null,
+                            target: null,
+                            context: cfg.BuildConfiguration
+                        )));
+
+                        // @todo: enumerate exe targets within the buildfile
+
+                        var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
+                        string tempTargetName = buildfileDir.Name;
+                        // @todo: pull pkg name from index
+                        var packageDir = new DirectoryInfo(packagePath);
+
+                        // Just restricting startup items (which can also be built from the top menu) to packages for now.
+                        if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
+                        {
+                            string pkgName = packageDir.Name;
+                            string name = $"{tempTargetName} [{pkgName}]";
+                            AddStartupItem(name);
+                        }
+
+                        OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
+                    }
+                    else
+                    {
+                        // @todo: for now assuming this means not in a package (at project level), rather than 'indexed data not available'.
+                        // Also, for the moment no attempt to build subtrees, just build the whole project. Should probably generate a list of
+                        // package paths to pass to bdep, including every package located below us in the folder structure.
+
+                        // Grab cached build configurations for project
+                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathAsync(workspaceContext.Location, workspaceContext);
+                        results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
+                            BuildConfigurationContext.ContextTypeGuid,
+                            BuildConfigurationContext.DataValueName,
+                            null,
+                            context: cfg.BuildConfiguration
+                            )));
+
+                        var rootDir = new DirectoryInfo(workspaceContext.Location);
+                        AddStartupItem(rootDir.Name);
+
+                        OutputUtils.OutputWindowPaneAsync(string.Format("Using project-level configs ({0}) for '{1}'", buildConfigs.Count(), relativePath));
+                    }
+
+                    OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
+                    return (T)(IReadOnlyCollection<FileDataValue>)results;
+                }
+                //else if (typeof(T) == FileScannerTypeConstants.FileReferenceInfoType)
+                //{                    
+                //    var results = new List<FileReferenceInfo>();
+
+                //    var buildConfigs = await ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(workspaceContext.Location, workspaceContext);
+
+                //    // @TODO: VS will only show the 'Set as Startup Item' context menu option if a file ref
+                //    // is given pointing at something ending in .exe (doesn't need to exist).
+                //    // Ideally we should enumerate exe targets in the buildfile and use those.
+                //    // Still don't understand why the ability to change build configs appears to be tied to debug launch and not just
+                //    // anything that's buildable.
+                //    string tgtPath = Path.Combine(Path.GetDirectoryName(filePath), "hack.exe");
+                //    results.AddRange(buildConfigs.Select(cfg => new FileReferenceInfo(
+                //        relativePath: tgtPath,
+                //        target: null, // no idea how this is used
+                //        //context: cfg.BuildConfiguration, - appears unneeded, though rust project passes something similar
+                //        referenceType: (int)FileReferenceInfoType.Output
+                //        )));
+
+                //    OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
+                //    return (T)(IReadOnlyCollection<FileReferenceInfo>)results;
+                //}
+                else
                 {
                     throw new NotImplementedException();
                 }
-
-                var relativePath = workspaceContext.MakeRelative(filePath);
-                OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner invoked for: {0}", relativePath));
-
-                var indexService = workspaceContext.GetIndexWorkspaceService();
-
-                //using (StreamReader rdr = new StreamReader(filePath))
-                //{
-                //}
-
-                // @todo: Unsure on this. Seems to work (we are blocking on the indexing of our package manifest completing first, so we can access the
-                // cached build config info), but not sure if this is good/safe, or if instead should just return whatever's available now (maybe nothing)
-                // and register an event handler for when the manifest indexing is updated, to refresh ourselves at that point.
-                Func<string, Task> createDataValuesRefreshTask = async (string entityPath) =>
-                {
-                    var state = await indexService.GetFileScannerState(entityPath, FileScannerType.FileData);
-                    if (!state.HasValue)
-                    {
-                        await indexService.RefreshElementAsync(entityPath, IndexElement.FileDataValueScanning | IndexElement.InvalidateCache, cancellationToken);
-                    }
-                };
-
-                var results = new List<FileDataValue>();
-
-                // Determine containing package
-
-                // See note above, unsure if right approach. Idea is to ensure this is indexed, since following call to GetContainingPackagePathAsync relies on it.
-                await createDataValuesRefreshTask(Build2Constants.PackageListManifestFilename);
-
-                var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath);
-                if (packagePath != null)
-                {
-                    // Grab cached build configurations for our package
-                    var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
-
-                    // See note above, unsure if right approach. Done so that GetIndexedBuild... call below will be sure to have data available.
-                    await createDataValuesRefreshTask(packageManifestPath);
-
-                    var buildConfigs = await ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(packagePath, workspaceContext);
-                    results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
-                        BuildConfigurationContext.ContextTypeGuid,
-                        BuildConfigurationContext.DataValueName,
-                        null,
-                        context: cfg.BuildConfiguration
-                        )));
-
-                    OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
-                }
-                else
-                {
-                    // @todo: for now assuming this means not in a package (at project level), rather than 'indexed data not available'.
-                    // Also, for the moment no attempt to build subtrees, just build the whole project. Should probably generate a list of
-                    // package paths to pass to bdep, including every package located below us in the folder structure.
-
-                    // Grab cached build configurations for project
-                    var buildConfigs = await ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(workspaceContext.Location, workspaceContext);
-                    results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
-                        BuildConfigurationContext.ContextTypeGuid,
-                        BuildConfigurationContext.DataValueName,
-                        null,
-                        context: cfg.BuildConfiguration
-                        )));
-
-                    OutputUtils.OutputWindowPaneAsync(string.Format("Using project-level configs ({0}) for '{1}'", buildConfigs.Count(), relativePath));
-                }
-
-                OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
-
-                return (T)(IReadOnlyCollection<FileDataValue>)results;
             }
         }
     }

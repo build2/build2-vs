@@ -11,6 +11,7 @@ using B2VS.VSPackage;
 using B2VS.Workspace;
 using B2VS.ProjectModel;
 using B2VS.Toolchain;
+using Microsoft.VisualStudio.Workspace.Debug;
 
 namespace B2VS.Contexts
 {
@@ -19,7 +20,9 @@ namespace B2VS.Contexts
     /// </summary>
     [ExportFileContextProvider(
         ProviderType,
-        PackageIds.BuildfileContextType, BuildContextTypes.BuildContextType)] //, BuildContextTypes.BuildAllContextType)]
+        PackageIds.BuildfileContextType,
+        BuildContextTypes.BuildContextType,
+        DebugLaunchActionContext.ContextType)] //, BuildContextTypes.BuildAllContextType)]
     internal class BuildfileContextProviderFactory : IWorkspaceProviderFactory<IFileContextProvider>
     {
         // Unique Guid for BuildfileContextProvider.
@@ -70,7 +73,7 @@ namespace B2VS.Contexts
                     }
                     //if (basePath != null)
                     {
-                        var buildConfigs = await ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(basePath, workspaceContext);
+                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathAsync(basePath, workspaceContext);
 
                         // @todo: Unclear if should be creating a full build config here; could instead just pass through minimal info and then use that to 
                         // retrieve the full config info from somewhere centralized when invoking an action on this context.

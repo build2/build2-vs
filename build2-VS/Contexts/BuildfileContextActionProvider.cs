@@ -130,29 +130,35 @@ namespace B2VS.Contexts
                                 b2vsEnv.SetProperty(Build2VSGeneratedEnvVarName, "");
 
                                 var indexService = workspaceContext.GetIndexWorkspaceService();
-
-                                var packageListValues = await indexService.GetFileDataValuesAsync<Build2Manifest>(
-                                    Build2Constants.PackageListManifestFilename,
-                                    VSPackage.PackageIds.PackageListManifestEntryDataValueTypeGuid);
+                                
+                                var packageLocations = await Workspace.Build2Workspace.EnumeratePackageLocationsAsync(workspaceContext);
                                 
                                 // For each package, retrieve name and list of build configs it's in.
-                                Func<Build2Manifest, Task<IEnumerable<Build2BuildConfiguration>>> manifestToBuildConfigs = async (Build2Manifest manifest) =>
+                                Func<string, Task<IEnumerable<Build2BuildConfiguration>>> packageLocationToBuildConfigs = async (string relPackageLocation) => //Build2Manifest manifest) =>
                                     {
-                                        var relPackageLocation = manifest.Entries["location"];
                                         var absPackageLocation = Path.Combine(workspaceContext.Location, relPackageLocation);
                                         var packageManifestFilepath = Path.Combine(absPackageLocation, Build2Constants.PackageManifestFilename);
                                         var packageBuildConfigValues = await indexService.GetFileDataValuesAsync<Build2BuildConfiguration>(packageManifestFilepath, PackageIds.Build2ConfigDataValueTypeGuid);
                                         return packageBuildConfigValues.Select(entry => entry.Value);
                                     };
-                                var packagesInfo = await Task.WhenAll(packageListValues.Select(async entry =>
+                                var packagesInfo = await Task.WhenAll(packageLocations.Select(async location =>
                                 {
-                                    // @todo: pull from manifest data values (not yet implemented)
-                                    var location = entry.Value.Entries["location"];
-                                    var startIdx = location.LastIndexOf('/', location.Length - 2, location.Length - 1);
-                                    startIdx = startIdx == -1 ? 0 : startIdx + 1;
-                                    var name = location.Substring(startIdx, location.Length - startIdx - 1);
+                                    // @todo: pull package name from package manifest data values (not yet implemented)
+                                    //var location = entry.Value.Entries["location"];
+                                    string name;
+                                    // TEMPPPPPPPPPPPPP
+                                    if (location == ".")
+                                    {
+                                        name = "test";
+                                    }
+                                    else
+                                    {
+                                        var startIdx = location.LastIndexOf('/', location.Length - 2, location.Length - 1);
+                                        startIdx = startIdx == -1 ? 0 : startIdx + 1;
+                                        name = location.Substring(startIdx, location.Length - startIdx - 1);
+                                    }
                                     //
-                                    var packageConfigs = await manifestToBuildConfigs(entry.Value);
+                                    var packageConfigs = await packageLocationToBuildConfigs(location); //entry.Value);
                                     return (name, packageConfigs);
                                 }).ToList());
 

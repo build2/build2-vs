@@ -57,10 +57,10 @@ namespace B2VS.Contexts
                     return (T)(IReadOnlyCollection<FileDataValue>)new List<FileDataValue>();
                 }
 
-                // @todo: verify here that filePath is a valid package manifest, and that the package is valid within the bdep project.
-
                 var relativePath = workspaceContext.MakeRelative(filePath);
                 OutputUtils.OutputWindowPaneAsync(string.Format("Package manifest scanner invoked for: {0}", relativePath));
+
+                // @todo: verify here that filePath is a valid package manifest, and that the package is valid within the bdep project.
 
                 var results = new List<FileDataValue>();
 

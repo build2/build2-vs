@@ -52,7 +52,6 @@
     <Compile Include="ProjectModel\Project.cs" />
     <Compile Include="ProjectModel\ProjectConfigUtils.cs" />
     <Compile Include="ProjectModel\ProjectPackage.cs" />
-    <Compile Include="Command1.cs" />
     <Compile Include="Contexts\PackageListManifestScanner.cs" />
     <Compile Include="Language\Buildfile\BuildfileClassifier.cs" />
     <Compile Include="Language\Buildfile\BuildfileElementClassification.cs" />
