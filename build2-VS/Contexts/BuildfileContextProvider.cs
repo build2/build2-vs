@@ -52,11 +52,11 @@ namespace B2VS.Contexts
                 var filename = System.IO.Path.GetFileName(filePath);
                 if (filename.Equals(Build2Constants.BuildfileFilename))
                 {
-                    //fileContexts.Add(new FileContext(
-                    //    ProviderTypeGuid,
-                    //    new Guid(PackageIds.BuildfileContextType),
-                    //    filePath,
-                    //    new[] { filePath }));
+                    fileContexts.Add(new FileContext(
+                        ProviderTypeGuid,
+                        new Guid(PackageIds.BuildfileContextType),
+                        filePath,
+                        new[] { filePath }));
 
                     // todo: need to understand if the buildfile scanner that produces configs is intended to be producing project-wide configs (in which case we
                     // shouldn't be doing it per buildfile), or scoped ones. suspect this may relate to weird behaviour being seen.
