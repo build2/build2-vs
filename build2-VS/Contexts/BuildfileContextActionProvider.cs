@@ -25,8 +25,11 @@ namespace B2VS.Contexts
     [ExportFileContextActionProvider(
         (FileContextActionProviderOptions)VsCommandActionProviderOptions.SupportVsCommands,
         ProviderType, 
-        ProviderPriority.Normal, 
-        PackageIds.BuildfileContextType, BuildContextTypes.BuildContextType, BuildContextTypes.BuildAllContextType)]
+        ProviderPriority.Normal,
+        BuildContextTypes.BuildContextType,
+        BuildContextTypes.RebuildContextType,
+        BuildContextTypes.CleanContextType,
+        PackageIds.BuildfileContextType)]
     internal class BuildfileActionProviderFactory : IWorkspaceProviderFactory<IFileContextActionProvider>, IVsCommandActionProvider
     {
         // Unique Guid for WordCountActionProvider.
@@ -79,6 +82,36 @@ namespace B2VS.Contexts
 
             public Task<IReadOnlyList<IFileContextAction>> GetActionsAsync(string filePath, FileContext fileContext, CancellationToken cancellationToken)
             {
+                MyContextAction CreateMultiBuildAction(uint cmdId, IEnumerable<string[]> cmdArgs)
+                {
+                    return new MyContextAction(
+                        fileContext,
+                        new Tuple<Guid, uint>(BuildCommandGroupGuid, cmdId),
+                        "", // @NOTE: Unused as the display name for the built in 'Build' action will be used.
+                        async (fCtxt, progress, ct) =>
+                        {
+                            OutputUtils.ClearBuildOutputPaneAsync();
+
+                            Action<string> outputHandler = (string line) => OutputSimpleBuildMessage(workspaceContext, line + "\n");
+                            foreach (var cmd in cmdArgs)
+                            {
+                                var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(cmd, cancellationToken, stdErrHandler: outputHandler); //.ConfigureAwait(false);
+                                if (exitCode != 0)
+                                {
+                                    return false;
+                                }
+                            }
+                            return true;
+                        });
+                }
+
+                MyContextAction CreateSingleBuildAction(uint cmdId, string[] cmdArgs)
+                {
+                    var cmds = new List<string[]>();
+                    cmds.Add(cmdArgs);
+                    return CreateMultiBuildAction(cmdId, cmds);
+                }
+
                 if (fileContext.ContextType == BuildContextTypes.BuildContextTypeGuid)
                 {
                     var buildCtx = fileContext.Context as Toolchain.ContextualBuildConfiguration;
@@ -89,40 +122,58 @@ namespace B2VS.Contexts
                     
                     return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] {
                         // Build command:
-                        new MyContextAction(
-                            fileContext,
-                            new Tuple<Guid, uint>(BuildCommandGroupGuid, BuildCommandId),
-                            "", // @NOTE: Unused as the display name for the built int 'Build' action will be used.
-                            async (fCtxt, progress, ct) =>
-                            {
-                                OutputUtils.ClearBuildOutputPaneAsync();
-
-                                var args = new string[] {
-                                    "--verbose=2",
-                                    "update",
-                                    "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
-                                    "-d", buildCtx.TargetPath,
-                                };
-                                Action<string> outputHandler = (string line) => OutputSimpleBuildMessage(workspaceContext, line + "\n");
-                                var exitCode = await Toolchain.Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdErrHandler: outputHandler); //.ConfigureAwait(false);
-                                return exitCode == 0;
-                            }),
+                        CreateSingleBuildAction(BuildCommandId, new string[] {
+                            "--verbose=2",
+                            "update",
+                            "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
+                            "-d", buildCtx.TargetPath,
+                        })
                         });
                 }
-                //else if (fileContext.ContextType == BuildContextTypes.BuildAllContextTypeGuid)
-                //{
-                //    return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] {
-                //        // Build All command:
-                //        new MyContextAction(
-                //            fileContext,
-                //            new Tuple<Guid, uint>(BuildCommandGroupGuid, 0x1000), //BuildCommandId),
-                //            "???",
-                //            async (fCtxt, progress, ct) =>
-                //            {
-                //                await OutputWindowPaneAsync("(Not) Building all...");
-                //            }),
-                //        });
-                //}
+                else if (fileContext.ContextType == BuildContextTypes.RebuildContextTypeGuid)
+                {
+                    var buildCtx = fileContext.Context as Toolchain.ContextualBuildConfiguration;
+                    if (buildCtx == null)
+                    {
+                        return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] { });
+                    }
+
+                    // Rebuild command (although this can be done with a single b invocation, it seems bdep does not have an equivalent)
+                    var cmds = new List<string[]>();
+                    cmds.Add(new string[] {
+                        "--verbose=2",
+                        "clean",
+                        "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
+                        "-d", buildCtx.TargetPath,
+                    });
+                    cmds.Add(new string[] {
+                        "--verbose=2",
+                        "update",
+                        "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
+                        "-d", buildCtx.TargetPath,
+                    });
+                    return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] {
+                        CreateMultiBuildAction(BuildCommandId, cmds),
+                        });
+                }
+                else if (fileContext.ContextType == BuildContextTypes.CleanContextTypeGuid)
+                {
+                    var buildCtx = fileContext.Context as Toolchain.ContextualBuildConfiguration;
+                    if (buildCtx == null)
+                    {
+                        return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] { });
+                    }
+
+                    return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[] {
+                        // Clean command:
+                        CreateSingleBuildAction(CleanCommandId, new string[] {
+                            "--verbose=2",
+                            "clean",
+                            "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
+                            "-d", buildCtx.TargetPath,
+                        })
+                        });
+                }
 
                 throw new NotImplementedException();
             }

@@ -22,7 +22,9 @@ namespace B2VS.Contexts
         ProviderType,
         PackageIds.BuildfileContextType,
         BuildContextTypes.BuildContextType,
-        DebugLaunchActionContext.ContextType)] //, BuildContextTypes.BuildAllContextType)]
+        BuildContextTypes.RebuildContextType,
+        BuildContextTypes.CleanContextType,
+        DebugLaunchActionContext.ContextType)] 
     internal class BuildfileContextProviderFactory : IWorkspaceProviderFactory<IFileContextProvider>
     {
         // Unique Guid for BuildfileContextProvider.
@@ -83,6 +85,18 @@ namespace B2VS.Contexts
                         fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
                             ProviderTypeGuid,
                             BuildContextTypes.BuildContextTypeGuid,
+                            new ContextualBuildConfiguration(cfg, basePath),
+                            new[] { filePath })));
+
+                        fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
+                            ProviderTypeGuid,
+                            BuildContextTypes.RebuildContextTypeGuid,
+                            new ContextualBuildConfiguration(cfg, basePath),
+                            new[] { filePath })));
+
+                        fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
+                            ProviderTypeGuid,
+                            BuildContextTypes.CleanContextTypeGuid,
                             new ContextualBuildConfiguration(cfg, basePath),
                             new[] { filePath })));
 
