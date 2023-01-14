@@ -73,6 +73,7 @@
     <Compile Include="VSPackage\B2VSPackage.cs" />
     <Compile Include="VSPackage\PackageIds.cs" />
     <Compile Include="Workspace\Build2Workspace.cs" />
+    <Compile Include="Workspace\Build2WorkspaceNodeExtender.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest">
@@ -100,6 +101,9 @@
       <Version>16.3.43</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Workspace.Extensions.VS">
+      <Version>16.3.43</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.VisualStudio.Workspace.VSIntegration">
       <Version>16.3.43</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VSSDK.BuildTools">
