@@ -91,10 +91,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.Text.Logic">
-      <Version>17.0.491</Version>
+      <Version>17.4.255</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Text.UI.Wpf">
-      <Version>17.0.491</Version>
+      <Version>17.4.255</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Workspace">
       <Version>16.3.43</Version>
@@ -103,7 +103,7 @@
       <Version>16.3.43</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VSSDK.BuildTools">
-      <Version>17.0.5234</Version>
+      <Version>17.5.4065</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
