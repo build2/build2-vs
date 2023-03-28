@@ -38,7 +38,7 @@ namespace B2VS.Contexts
         private static readonly Guid ProviderCommandGroup = PackageIds.Build2GeneralCmdSet;
         private static readonly IReadOnlyList<CommandID> SupportedCommands = new List<CommandID>
             {
-                new CommandID(ProviderCommandGroup, PackageIds.TestCmdId),
+                //new CommandID(ProviderCommandGroup, PackageIds.TestCmdId),
             };
 
         public IFileContextActionProvider CreateProvider(IWorkspace workspaceContext)
@@ -59,8 +59,6 @@ namespace B2VS.Contexts
             private const uint BuildCommandId = 0x1000;
             private const uint RebuildCommandId = 0x1010;
             private const uint CleanCommandId = 0x1020;
-            private const string BuildCommandGroupGuidStr = "16537f6e-cb14-44da-b087-d1387ce3bf57";
-            private static readonly Guid BuildCommandGroupGuid = new Guid(BuildCommandGroupGuidStr);
 
             internal BuildfileActionProvider(IWorkspace workspaceContext)
             {
@@ -86,7 +84,7 @@ namespace B2VS.Contexts
                 {
                     return new MyContextAction(
                         fileContext,
-                        new Tuple<Guid, uint>(BuildCommandGroupGuid, cmdId),
+                        new Tuple<Guid, uint>(PackageIds.BuildCommandGroupGuid, cmdId),
                         "", // @NOTE: Unused as the display name for the built in 'Build' action will be used.
                         async (fCtxt, progress, ct) =>
                         {
