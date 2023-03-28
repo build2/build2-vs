@@ -14,6 +14,7 @@ namespace B2VS.Workspace
     internal class Build2WorkspaceNodeExtender : INodeExtender
     {
         protected SVsServiceProvider _provider;
+        private IWorkspaceCommandHandler _handler = new PackageBuildCommandHandler();
 
         [ImportingConstructor]
         public Build2WorkspaceNodeExtender([Import] SVsServiceProvider serviceProvider)
@@ -35,11 +36,9 @@ namespace B2VS.Workspace
         }
 
         public IWorkspaceCommandHandler ProvideCommandHandler(WorkspaceVisualNodeBase parentNode)
-        {
-            return null;
-        }
+            => parentNode is Build2PackageNode ? _handler : null;
 
-        class Build2PackagesRootNode : WorkspaceVisualNodeBase //, IFileNode
+        public class Build2PackagesRootNode : WorkspaceVisualNodeBase //, IFileNode
         {
             private readonly SVsServiceProvider _provider;
             //private ImageMoniker _moniker;
@@ -69,7 +68,7 @@ namespace B2VS.Workspace
             }
         }
 
-        public class Build2RootChildrenSource : IChildrenSource
+        class Build2RootChildrenSource : IChildrenSource
         {
             private INodeExtender _source;
             private WorkspaceVisualNodeBase _parentNode;
@@ -105,7 +104,42 @@ namespace B2VS.Workspace
             }
         }
 
-        public class PackagesChildrenSource : IChildrenSource
+        public class Build2PackageNode : WorkspaceVisualNodeBase, IFileNode
+        {
+            private readonly SVsServiceProvider _provider;
+            private string _fileName;
+            private string _filePath;
+            //private ImageMoniker _moniker;
+
+            public string FileName => _fileName;
+            public string FullPath => _filePath;
+
+            public Build2PackageNode(SVsServiceProvider provider, WorkspaceVisualNodeBase parent, string fileName, string filePath /*, ImageMoniker moniker*/) : base(parent)
+            {
+                this._provider = provider;
+                this._fileName = fileName;
+                this._filePath = filePath;
+                this.NodeMoniker = fileName;
+                //this._moniker = moniker;
+            }
+
+            protected override void OnInitialized()
+            {
+                base.OnInitialized();
+                UINode.Text = _fileName;
+                //SetIcon(_moniker.Guid, _moniker.Id);
+            }
+
+            public override int Compare(WorkspaceVisualNodeBase right)
+            {
+                Build2PackageNode node = right as Build2PackageNode;
+                if (node == null)
+                    return -1;
+                return _fileName.CompareTo(node._fileName);
+            }
+        }
+
+        class PackagesChildrenSource : IChildrenSource
         {
             private INodeExtender _source;
             private WorkspaceVisualNodeBase _parentNode;
@@ -144,41 +178,6 @@ namespace B2VS.Workspace
                 }
 
                 return children;
-            }
-
-            class Build2PackageNode : WorkspaceVisualNodeBase, IFileNode
-            {
-                private readonly SVsServiceProvider _provider;
-                private string _fileName;
-                private string _filePath;
-                //private ImageMoniker _moniker;
-
-                public string FileName => _fileName;
-                public string FullPath => _filePath;
-
-                public Build2PackageNode(SVsServiceProvider provider, WorkspaceVisualNodeBase parent, string fileName, string filePath /*, ImageMoniker moniker*/) : base(parent)
-                {
-                    this._provider = provider;
-                    this._fileName = fileName;
-                    this._filePath = filePath;
-                    this.NodeMoniker = fileName;
-                    //this._moniker = moniker;
-                }
-
-                protected override void OnInitialized()
-                {
-                    base.OnInitialized();
-                    UINode.Text = _fileName;
-                    //SetIcon(_moniker.Guid, _moniker.Id);
-                }
-
-                public override int Compare(WorkspaceVisualNodeBase right)
-                {
-                    Build2PackageNode node = right as Build2PackageNode;
-                    if (node == null)
-                        return -1;
-                    return _fileName.CompareTo(node._fileName);
-                }
             }
         }
     }

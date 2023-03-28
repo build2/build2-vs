@@ -74,6 +74,8 @@
     <Compile Include="VSPackage\PackageIds.cs" />
     <Compile Include="Workspace\Build2Workspace.cs" />
     <Compile Include="Workspace\Build2WorkspaceNodeExtender.cs" />
+    <Compile Include="Workspace\CmdHandler_PackageBuild.cs" />
+    <Compile Include="Workspace\CommandHandlerBase.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest">
