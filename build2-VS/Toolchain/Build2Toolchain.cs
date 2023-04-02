@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
 using Microsoft.VisualStudio.Threading;
+using System.Windows.Shapes;
 
 namespace B2VS.Toolchain
 {
@@ -47,6 +48,8 @@ namespace B2VS.Toolchain
         /// <returns></returns>
         private async Task<int> InternalInvokeAsync(IEnumerable< string > args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
         {
+            Build2Toolchain.DebugHandler?.Invoke(string.Format("Invoking build2 toolchain from thread id: {0}", System.Environment.CurrentManagedThreadId));
+
             var startInfo = new ProcessStartInfo(ToolName);
             startInfo.UseShellExecute = false;
             startInfo.Arguments = String.Join(" ", args);
@@ -128,47 +131,50 @@ namespace B2VS.Toolchain
             }
 
             process.WaitForExit(); // @todo: should prob use above commented out approach to async wait, but this should be irrelevant in the common case
-                // where we had >1 output stream handler, since in that case we've already ensured the stream is ended before getting here.
+                                   // where we had >1 output stream handler, since in that case we've already ensured the stream is ended before getting here.
+
+            Build2Toolchain.DebugHandler?.Invoke(string.Format("Build2 toolchain invocation completed, result: {0}", process.ExitCode));
+
             return process.ExitCode; //tcs.Task;
         }
 
-        //private class SerializedTaskQueue
-        //{
-        //    private SemaphoreSlim semaphore;
-
-        //    public SerializedTaskQueue()
-        //    {
-        //        // Max one at a time
-        //        semaphore = new SemaphoreSlim(1);
-        //    }
-
-        //    public async Task<T> EnqueueAsync<T>(Func<Task<T>> taskGenerator)
-        //    {
-        //        await semaphore.WaitAsync().ConfigureAwait(false);
-        //        try
-        //        {
-        //            return await taskGenerator().ConfigureAwait(false);
-        //        }
-        //        finally
-        //        {
-        //            semaphore.Release();
-        //        }
-        //    }
-        //}
-
-        // @todo: probably better to instance this somewhere once per oped build2 project.
-        //private static SerializedTaskQueue serializedQueue = new SerializedTaskQueue();
-        private static NonConcurrentSynchronizationContext nonConcurrentContext = new NonConcurrentSynchronizationContext(true); // Sticky=true important to ensure that code following first await will also run on the non-concurrent context.
-
-        public async Task<int> InvokeQueuedAsync(IEnumerable<string> args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
+        private class SerializedTaskQueue
         {
-            //return serializedQueue.EnqueueAsync<int>(() => InternalInvokeAsync(args, cancellationToken, stdOutHandler, stdErrHandler));
+            private SemaphoreSlim semaphore;
 
-            SynchronizationContext.SetSynchronizationContext(nonConcurrentContext);
-            var task = InternalInvokeAsync(args, cancellationToken, stdOutHandler, stdErrHandler);
-            //nonConcurrentContext.Post((object state) => { task.RunSynchronously(); }, null);
-            //return task;
-            return await task;
+            public SerializedTaskQueue()
+            {
+                // Max one at a time
+                semaphore = new SemaphoreSlim(1);
+            }
+
+            public async Task<T> EnqueueAsync<T>(Func<Task<T>> taskGenerator)
+            {
+                await semaphore.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    return await taskGenerator().ConfigureAwait(false);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }
+        }
+
+        // @todo: probably better to instance this somewhere once per open build2 project.
+        private static SerializedTaskQueue serializedQueue = new SerializedTaskQueue();
+        //private static NonConcurrentSynchronizationContext nonConcurrentContext = new NonConcurrentSynchronizationContext(true); // Sticky=true important to ensure that code following first await will also run on the non-concurrent context.
+
+        public /*async*/ Task<int> InvokeQueuedAsync(IEnumerable<string> args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
+        {
+            return serializedQueue.EnqueueAsync<int>(() => InternalInvokeAsync(args, cancellationToken, stdOutHandler, stdErrHandler));
+
+            //SynchronizationContext.SetSynchronizationContext(nonConcurrentContext);
+            //var task = InternalInvokeAsync(args, cancellationToken, stdOutHandler, stdErrHandler);
+            ////nonConcurrentContext.Post((object state) => { task.RunSynchronously(); }, null);
+            ////return task;
+            //return await task;
         }
     }
 
