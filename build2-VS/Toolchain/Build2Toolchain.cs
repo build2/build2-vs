@@ -48,7 +48,7 @@ namespace B2VS.Toolchain
         /// <returns></returns>
         private async Task<int> InternalInvokeAsync(IEnumerable< string > args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
         {
-            Build2Toolchain.DebugHandler?.Invoke(string.Format("Invoking build2 toolchain from thread id: {0}", System.Environment.CurrentManagedThreadId));
+            Build2Toolchain.DebugHandler?.Invoke(string.Format("Invoking build2 toolchain on thread id: {0}", System.Environment.CurrentManagedThreadId));
 
             var startInfo = new ProcessStartInfo(ToolName);
             startInfo.UseShellExecute = false;
@@ -168,7 +168,9 @@ namespace B2VS.Toolchain
 
         public /*async*/ Task<int> InvokeQueuedAsync(IEnumerable<string> args, CancellationToken cancellationToken, Action<string> stdOutHandler = null, Action<string> stdErrHandler = null)
         {
-            return serializedQueue.EnqueueAsync<int>(() => InternalInvokeAsync(args, cancellationToken, stdOutHandler, stdErrHandler));
+            Build2Toolchain.DebugHandler?.Invoke(string.Format("Request to invoke build2 toolchain came in on thread id: {0}", System.Environment.CurrentManagedThreadId));
+
+            return Task.Run(() => serializedQueue.EnqueueAsync<int>(() => InternalInvokeAsync(args, cancellationToken, stdOutHandler, stdErrHandler)), cancellationToken);
 
             //SynchronizationContext.SetSynchronizationContext(nonConcurrentContext);
             //var task = InternalInvokeAsync(args, cancellationToken, stdOutHandler, stdErrHandler);
