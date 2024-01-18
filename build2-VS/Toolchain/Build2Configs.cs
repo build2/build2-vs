@@ -81,7 +81,14 @@ namespace B2VS.Toolchain
                 return new Build2BuildConfiguration(configStatusJson.configuration.name ?? configStatusJson.configuration.path, configStatusJson.configuration.path);
             };
 
-            return configStatusesJson.Select(convertConfigStatus).ToList();
+            // @TODO: don't think build2 actually requires the package folder name to match the package name??
+            // need to refactor to always pass in package name if possible.
+            var packageName = System.IO.Path.GetFileName(packagePath);
+
+            return configStatusesJson
+                // Filter to configurations in which this package exists and is configured.
+                .Where(cfgStatus => cfgStatus.packages.Any(pkgStatus => string.Compare(pkgStatus.name, packageName, StringComparison.OrdinalIgnoreCase) == 0 && pkgStatus.status == "configured"))
+                .Select(convertConfigStatus).ToList();
         }
     }
 }
