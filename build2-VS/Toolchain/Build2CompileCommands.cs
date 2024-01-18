@@ -34,6 +34,9 @@ namespace B2VS.Toolchain
             
             string[] knownCompilerOptionPrefixes = new string[]{
                 "/std:",
+                "-std=",
+                "--std=",
+                // @todo: need to support options specified with 2 tokens, eg: --std c++20
             };
 
             if (tok.Current == includePrefix)
@@ -84,7 +87,7 @@ namespace B2VS.Toolchain
                 command = command.Substring(1, command.Length - 2).Trim();
             }
 
-            return command.EndsWith("cl") || command.EndsWith("cl.exe");
+            return command.EndsWith("cl") || command.EndsWith("cl.exe") || command.EndsWith("clang++") || command.EndsWith("clang++.exe");
         }
 
         internal static PerTranslationUnitCompileCmds<List<string>> ParseCommandsFromLine(string line)
