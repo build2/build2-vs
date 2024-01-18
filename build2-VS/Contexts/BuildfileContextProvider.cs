@@ -67,7 +67,7 @@ namespace B2VS.Contexts
                     // we may need to explicitly check if the packages list is up to date, since we need to distinguish between 'not up to date so can't generate
                     // configs' and 'up to date but there was no package containing this path, so we should just generate project level configs instead'.
                     // currently, the latter case is just not dealt with.
-                    var basePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath);
+                    var basePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath);
                     if (basePath == null)
                     {
                         // Assume project
@@ -75,7 +75,10 @@ namespace B2VS.Contexts
                     }
                     //if (basePath != null)
                     {
-                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathAsync(basePath, workspaceContext);
+                        // @note : disabled, after vs update the nested calls to the index service provider never yield.
+                        // at a guess, it's no longer permitted to use the index service from within a context provider/file scanner callback??
+                        var buildConfigs = await //ProjectConfigUtils.GetBuildConfigurationsForPathAsync(basePath, workspaceContext);
+                            ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(basePath, workspaceContext);
 
                         // @todo: Unclear if should be creating a full build config here; could instead just pass through minimal info and then use that to 
                         // retrieve the full config info from somewhere centralized when invoking an action on this context.
