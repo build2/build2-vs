@@ -8,10 +8,10 @@ namespace B2VS.Language.Manifest
 {
     internal class Build2Manifest
     {
-        public Build2Manifest(string ver, IReadOnlyDictionary<string, string> entries)
+        public Build2Manifest(string version, IReadOnlyDictionary<string, string> entries)
         {
-            Version = ver;
-            Entries = entries;
+            this.Version = version;
+            this.Entries = entries;
         }
 
         public string Version { get; }
