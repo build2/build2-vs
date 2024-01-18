@@ -38,7 +38,7 @@ namespace B2VS.Contexts
         private static readonly Guid ProviderCommandGroup = PackageIds.Build2GeneralCmdSet;
         private static readonly IReadOnlyList<CommandID> SupportedCommands = new List<CommandID>
             {
-                new CommandID(ProviderCommandGroup, PackageIds.TestCmdId),
+                //new CommandID(ProviderCommandGroup, PackageIds.TestCmdId),
             };
 
         public IFileContextActionProvider CreateProvider(IWorkspace workspaceContext)

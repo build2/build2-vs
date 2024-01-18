@@ -81,13 +81,13 @@ namespace B2VS.Contexts
 
                     // Determine containing package
 
-                    var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath);
+                    var packagePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath);
                     if (packagePath != null)
                     {
                         // Grab cached build configurations for our package
                         var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
 
-                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathAsync(packagePath, workspaceContext);
+                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext);
                         results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
                             BuildConfigurationContext.ContextTypeGuid,
                             BuildConfigurationContext.DataValueName,
@@ -120,7 +120,7 @@ namespace B2VS.Contexts
                         // package paths to pass to bdep, including every package located below us in the folder structure.
 
                         // Grab cached build configurations for project
-                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathAsync(workspaceContext.Location, workspaceContext);
+                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(workspaceContext.Location, workspaceContext);
                         results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
                             BuildConfigurationContext.ContextTypeGuid,
                             BuildConfigurationContext.DataValueName,

@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.Workspace;
 using B2VS.Language.Manifest;
 using B2VS.Toolchain;
 using B2VS.VSPackage;
+using System.Diagnostics;
 
 namespace B2VS.Workspace
 {
@@ -71,6 +72,41 @@ namespace B2VS.Workspace
             //{
             //    // Probably should return project path, since it is in fact a package too?
             //}
+            return null;
+        }
+
+        public static bool IsPackageRootFolderNoIndex(string folderPath)
+        {
+            // Determine based on existence of manifest file
+            // @todo: without verifying that the package also exists in packages.manifest, this is flaky,
+            // but doing that without using the index is ridiculous...
+            var matches = Directory.EnumerateFiles(folderPath, Build2Constants.PackageManifestFilename);
+            if (matches.Count() == 1)
+            {
+                return true;
+            }
+            Debug.Assert(matches.Count() == 0); // Assuming above search pattern looks for exact match...?
+            return false;
+        }
+
+        /// <summary>
+        /// Maps a path to the path of the build2 package containing it.
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        public static async Task<string> GetContainingPackagePathNoIndexAsync(IWorkspace workspaceContext, string filePath)
+        {
+            var rootDirName = workspaceContext.Location;
+            var dir = new DirectoryInfo(Path.GetDirectoryName(filePath));
+            while (dir.Exists && dir.FullName != rootDirName)
+            {
+                if (IsPackageRootFolderNoIndex(dir.FullName))
+                {
+                    return dir.FullName;
+                }
+                dir = dir.Parent;
+            }
+
             return null;
         }
     }

@@ -72,6 +72,7 @@
     <Compile Include="Utilities\PathUtils.cs" />
     <Compile Include="VSPackage\B2VSPackage.cs" />
     <Compile Include="VSPackage\PackageIds.cs" />
+    <Compile Include="Workspace\Build2Settings.cs" />
     <Compile Include="Workspace\Build2Workspace.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -91,10 +92,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.Text.Logic">
-      <Version>17.5.279</Version>
+      <Version>17.8.222</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Text.UI.Wpf">
-      <Version>17.5.279</Version>
+      <Version>17.8.222</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Workspace">
       <Version>16.3.43</Version>
@@ -103,12 +104,12 @@
       <Version>16.3.43</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VSSDK.BuildTools">
-      <Version>17.5.4072</Version>
+      <Version>17.8.2365</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="System.Text.Json">
-      <Version>7.0.2</Version>
+      <Version>7.0.4</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
