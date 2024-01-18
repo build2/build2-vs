@@ -35,6 +35,26 @@ namespace B2VS.Toolchain.Json
         }
     }
 
+    namespace Bpkg.Status
+    {
+        internal class PackageStatus
+        {
+            [JsonInclude]
+            public string name;
+            [JsonInclude]
+            public string status; // @todo: define and convert to enum
+            //[JsonInclude]
+            //public string version;
+            //"hold_package": true,
+            //"hold_version": true,
+            //"available_versions": [
+            //  {
+            //    "version": "0.1.0-a.0.20230407095419"
+            //  }
+            //]
+        }
+    }
+
     namespace Bdep.Status
     {
         internal class ConfigurationPackageStatus
@@ -51,9 +71,8 @@ namespace B2VS.Toolchain.Json
 
             [JsonInclude]
             public Configuration configuration;
-            // when needed
-            //[JsonInclude]
-            //public List<Bpkg.Status.PackageStatus> packages = new List<Bpkg.Status.PackageStatus>();
+            [JsonInclude]
+            public List<Bpkg.Status.PackageStatus> packages = new List<Bpkg.Status.PackageStatus>();
         }
     }
 }
