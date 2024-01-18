@@ -72,6 +72,7 @@
     <Compile Include="Utilities\PathUtils.cs" />
     <Compile Include="VSPackage\B2VSPackage.cs" />
     <Compile Include="VSPackage\PackageIds.cs" />
+    <Compile Include="Workspace\Build2Settings.cs" />
     <Compile Include="Workspace\Build2Workspace.cs" />
   </ItemGroup>
   <ItemGroup>
