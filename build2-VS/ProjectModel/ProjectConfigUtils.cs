@@ -25,15 +25,16 @@ namespace B2VS.ProjectModel
         /// <param name="path">Assumed to identify either a package, or the top level project.</param>
         /// <param name="workspace"></param>
         /// <returns></returns>
-        public static async Task<IEnumerable<Build2BuildConfiguration>> GetIndexedBuildConfigurationsForPathAsync(string path, IWorkspace workspace)
+        public static async Task<IEnumerable<Build2BuildConfiguration>> GetIndexedBuildConfigurationsForPathAsync(string path, IWorkspace workspace, CancellationToken cancellationToken)
         {
-            var indexService = workspace.GetIndexWorkspaceService();
             // Appears to be no sane way to reliably compare paths...
-            bool isProject = workspace.MakeRooted(path) == workspace.Location;
-            var entityPath = isProject && Workspace.Build2Workspace.IsMultiPackageProject(workspace) ?
+            bool isProject = false; // workspace.MakeRooted(path) == workspace.Location;
+            bool isMultiPackageProjectLevelRequest = isProject && Workspace.Build2Workspace.IsMultiPackageProject(workspace);
+            var entityPath = isMultiPackageProjectLevelRequest ?
                 Path.Combine(workspace.Location, Build2Constants.PackageListManifestFilename) :
                 Path.Combine(path, Build2Constants.PackageManifestFilename);
-            var buildConfigValues = await indexService.GetFileDataValuesAsync<Build2BuildConfiguration>(entityPath, PackageIds.Build2ConfigDataValueTypeGuid);
+            var indexService = workspace.GetIndexWorkspaceService();
+            var buildConfigValues = await indexService.GetFileDataValuesAsync<Build2BuildConfiguration>(entityPath, PackageIds.Build2ConfigDataValueTypeGuid, cancellationToken: cancellationToken);
             return FilterBuildConfigurationsBySettings(buildConfigValues.Select(entry => entry.Value), workspace);
         }
 
@@ -43,15 +44,15 @@ namespace B2VS.ProjectModel
         /// <param name="path">Assumed to identify either a package, or the top level project.</param>
         /// <param name="workspace"></param>
         /// <returns></returns>
-        public static async Task<IEnumerable<Build2BuildConfiguration>> GetBuildConfigurationsForPathOnDemandAsync(string path, IWorkspace workspace)
+        public static async Task<IEnumerable<Build2BuildConfiguration>> GetBuildConfigurationsForPathOnDemandAsync(string path, IWorkspace workspace, CancellationToken cancellationToken)
         {
             // Appears to be no sane way to reliably compare paths...
-            bool isProject = workspace.MakeRooted(path) == workspace.Location;
+            bool isProject = false;// workspace.MakeRooted(path) == workspace.Location;
             bool isMultiPackageProjectLevelRequest = isProject && Workspace.Build2Workspace.IsMultiPackageProject(workspace);
             // @todo: receive optional cancellation token
             var configs = isMultiPackageProjectLevelRequest ?
-                await Build2Configs.EnumerateBuildConfigsForProjectPathAsync(path, CancellationToken.None)
-                : await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(path, CancellationToken.None);
+                await Build2Configs.EnumerateBuildConfigsForProjectPathAsync(path, cancellationToken)
+                : await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(path, cancellationToken);
             return FilterBuildConfigurationsBySettings(configs, workspace);
         }
 
@@ -62,12 +63,12 @@ namespace B2VS.ProjectModel
         /// <param name="path">Assumed to identify either a package, or the top level project.</param>
         /// <param name="workspace"></param>
         /// <returns></returns>
-        public static async Task<IEnumerable<Build2BuildConfiguration>> GetBuildConfigurationsForPathAsync(string path, IWorkspace workspace)
+        public static async Task<IEnumerable<Build2BuildConfiguration>> GetBuildConfigurationsForPathAsync(string path, IWorkspace workspace, CancellationToken cancellationToken)
         {
-            var configs = await GetIndexedBuildConfigurationsForPathAsync(path, workspace);
+            var configs = await GetIndexedBuildConfigurationsForPathAsync(path, workspace, cancellationToken);
             if (configs.Count() == 0)
             {
-                configs = await GetBuildConfigurationsForPathOnDemandAsync(path, workspace);
+                configs = await GetBuildConfigurationsForPathOnDemandAsync(path, workspace, cancellationToken);
             }
             return configs;
         }

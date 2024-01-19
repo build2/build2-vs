@@ -41,6 +41,8 @@ namespace B2VS.Contexts
         {
             private IWorkspace workspaceContext;
 
+            private Int32 inflightCount = 0;
+
             internal BuildfileContextProvider(IWorkspace workspaceContext)
             {
                 this.workspaceContext = workspaceContext;
@@ -54,6 +56,8 @@ namespace B2VS.Contexts
                 var filename = System.IO.Path.GetFileName(filePath);
                 if (filename.Equals(Build2Constants.BuildfileFilename))
                 {
+                    OutputUtils.OutputWindowPaneAsync(string.Format("Contexts requested for {0}...", filePath));
+
                     fileContexts.Add(new FileContext(
                         ProviderTypeGuid,
                         new Guid(PackageIds.BuildfileContextType),
@@ -63,22 +67,32 @@ namespace B2VS.Contexts
                     // todo: need to understand if the buildfile scanner that produces configs is intended to be producing project-wide configs (in which case we
                     // shouldn't be doing it per buildfile), or scoped ones. suspect this may relate to weird behaviour being seen.
 
+                    var inflight = Interlocked.Increment(ref inflightCount);
+                    OutputUtils.OutputWindowPaneAsync(string.Format("Inflight++ -> {0}", inflight));
+
                     // @todo: needs attention.
                     // we may need to explicitly check if the packages list is up to date, since we need to distinguish between 'not up to date so can't generate
                     // configs' and 'up to date but there was no package containing this path, so we should just generate project level configs instead'.
                     // currently, the latter case is just not dealt with.
-                    var basePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath);
-                    if (basePath == null)
-                    {
-                        // Assume project
-                        basePath = workspaceContext.Location;
-                    }
-                    //if (basePath != null)
+                    var basePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath,
+                        // if package isn't valid then we'll simply get no configs from below GetBuildConfigurationsForPathAsync call
+                        verify: false);
+
+                    inflight = Interlocked.Decrement(ref inflightCount);
+                    OutputUtils.OutputWindowPaneAsync(string.Format("Inflight-- -> {0}", inflight));
+
+                    //if (basePath == null)
+                    //{
+                    //    // Assume project
+                    //    basePath = workspaceContext.Location;
+                    //}
+                    if (basePath != null)
                     {
                         // @note : disabled, after vs update the nested calls to the index service provider never yield.
                         // at a guess, it's no longer permitted to use the index service from within a context provider/file scanner callback??
-                        var buildConfigs = await //ProjectConfigUtils.GetBuildConfigurationsForPathAsync(basePath, workspaceContext);
-                            ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(basePath, workspaceContext);
+                        var buildConfigs = await
+                            ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(basePath, workspaceContext, cancellationToken);
+                            //ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(basePath, workspaceContext, cancellationToken);
 
                         // @todo: Unclear if should be creating a full build config here; could instead just pass through minimal info and then use that to 
                         // retrieve the full config info from somewhere centralized when invoking an action on this context.

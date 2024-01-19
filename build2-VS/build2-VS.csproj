@@ -49,6 +49,7 @@
     <Compile Include="Contexts\CppSettingsProvider.cs" />
     <Compile Include="Contexts\PackageManifestContextProvider.cs" />
     <Compile Include="Contexts\PackageManifestScanner.cs" />
+    <Compile Include="Exceptions\InvalidPackageException.cs" />
     <Compile Include="ProjectModel\Project.cs" />
     <Compile Include="ProjectModel\ProjectConfigUtils.cs" />
     <Compile Include="ProjectModel\ProjectPackage.cs" />

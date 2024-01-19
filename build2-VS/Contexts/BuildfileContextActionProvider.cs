@@ -83,6 +83,8 @@ namespace B2VS.Contexts
 
             public Task<IReadOnlyList<IFileContextAction>> GetActionsAsync(string filePath, FileContext fileContext, CancellationToken cancellationToken)
             {
+                OutputUtils.OutputWindowPaneAsync(string.Format("Actions requested for {0}...", filePath));
+
                 MyContextAction CreateMultiBuildAction(uint cmdId, IEnumerable<string[]> cmdArgs)
                 {
                     return new MyContextAction(
@@ -108,9 +110,10 @@ namespace B2VS.Contexts
 
                 MyContextAction CreateSingleBuildAction(uint cmdId, string[] cmdArgs)
                 {
-                    var cmds = new List<string[]>();
-                    cmds.Add(cmdArgs);
-                    return CreateMultiBuildAction(cmdId, cmds);
+                    return CreateMultiBuildAction(cmdId, new List<string[]>
+                    {
+                        cmdArgs
+                    });
                 }
 
                 if (fileContext.ContextType == BuildContextTypes.BuildContextTypeGuid)

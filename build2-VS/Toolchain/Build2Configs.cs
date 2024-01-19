@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Workspace.Build;
 using BCLConfig = B2VS.Toolchain.Json.Bdep.Config.List.Configuration;
 using BSConfigStatus = B2VS.Toolchain.Json.Bdep.Status.ConfigurationPackageStatus;
+using B2VS.Exceptions;
 
 namespace B2VS.Toolchain
 {
@@ -63,10 +64,12 @@ namespace B2VS.Toolchain
             {
                 var args = new string[] { "status", "-d", packagePath, "-a", "--stdout-format", "json" };
                 Action<string> outputHandler = (string line) => jsonOutput += line;
-                var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
+                var errors = "";
+                Action<string> errorHandler = (string line) => errors += line;
+                var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler, stdErrHandler: errorHandler);
                 if (exitCode != 0)
                 {
-                    throw new Exception("'bdep status' failed");
+                    throw new InvalidPackageException(string.Format("'bdep status' failed with: {0}", errors));
                 }
             }
 
