@@ -75,7 +75,7 @@ namespace B2VS.Contexts
                     // configs' and 'up to date but there was no package containing this path, so we should just generate project level configs instead'.
                     // currently, the latter case is just not dealt with.
                     var basePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath,
-                        // if package isn't valid then we'll simply get no configs from below GetBuildConfigurationsForPathAsync call
+                        // if package isn't valid then we'll simply get no configs from below GetIndexedBuildConfigurationsForPathAsync call
                         verify: false);
 
                     inflight = Interlocked.Decrement(ref inflightCount);

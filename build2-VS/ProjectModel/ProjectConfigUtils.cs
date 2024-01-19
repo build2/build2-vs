@@ -56,23 +56,6 @@ namespace B2VS.ProjectModel
             return FilterBuildConfigurationsBySettings(configs, workspace);
         }
 
-        /// <summary>
-        /// Returns a list of known build configurations associated with path, trying the index service first, and falling back
-        /// onto build2 invocations if there is no index data available.
-        /// </summary>
-        /// <param name="path">Assumed to identify either a package, or the top level project.</param>
-        /// <param name="workspace"></param>
-        /// <returns></returns>
-        public static async Task<IEnumerable<Build2BuildConfiguration>> GetBuildConfigurationsForPathAsync(string path, IWorkspace workspace, CancellationToken cancellationToken)
-        {
-            var configs = await GetIndexedBuildConfigurationsForPathAsync(path, workspace, cancellationToken);
-            if (configs.Count() == 0)
-            {
-                configs = await GetBuildConfigurationsForPathOnDemandAsync(path, workspace, cancellationToken);
-            }
-            return configs;
-        }
-
         private static IEnumerable<Build2BuildConfiguration> FilterBuildConfigurationsBySettings(IEnumerable<Build2BuildConfiguration> configs, IWorkspace workspace)
         {
             // @todo: need to better differentiate name vs path. think unnamed configs will use full path for BuildConfiguration,
