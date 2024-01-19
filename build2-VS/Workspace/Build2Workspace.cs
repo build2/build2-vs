@@ -81,7 +81,9 @@ namespace B2VS.Workspace
         {
             // Assumption is that we've found a path with a manifest, but we want to check that it's registered as a package
             // in a containing multi-package project (in packages.manifest), or it is a project itself.
-            var args = new string[] { "status", "-d", folderPath, "-a" };
+            // @NOTE: Bit weird, but important to specify json output format as it prevents non-zero exit codes when the package is valid
+            // but is not initialized in any configuration. See https://cpplang.slack.com/archives/CDJ0Z991S/p1648741346159539?thread_ts=1647000265.335129&cid=CDJ0Z991S
+            var args = new string[] { "status", "-d", folderPath, "-a", "--stdout-format", "json" };
             var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, CancellationToken.None);
             return exitCode == 0;
         }
