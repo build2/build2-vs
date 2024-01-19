@@ -28,8 +28,10 @@ namespace B2VS
                 if (vsUiShell != null)
                 {
                     uint flags = (uint)__VSFINDTOOLWIN.FTW_fForceCreate;
-                    vsUiShell.FindToolWindow(flags, VSConstants.StandardToolWindows.Output, out windowFrame);
-                    windowFrame.Show();
+                    if (vsUiShell.FindToolWindow(flags, VSConstants.StandardToolWindows.Output, out windowFrame) == VSConstants.S_OK)
+                    {
+                        windowFrame.Show();
+                    }
                 }
 
                 outputWindow.CreatePane(paneGuid, nameToCreate, 1, 1);
