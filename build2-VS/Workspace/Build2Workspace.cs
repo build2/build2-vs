@@ -8,6 +8,8 @@ using B2VS.Language.Manifest;
 using B2VS.Toolchain;
 using B2VS.VSPackage;
 using System.Diagnostics;
+using System.IO.Packaging;
+using System.Threading;
 
 namespace B2VS.Workspace
 {
@@ -75,7 +77,16 @@ namespace B2VS.Workspace
             return null;
         }
 
-        public static bool IsPackageRootFolderNoIndex(string folderPath)
+        public static async Task<bool> VerifyValidPackageNoIndexAsync(string folderPath)
+        {
+            // Assumption is that we've found a path with a manifest, but we want to check that it's registered as a package
+            // in a containing multi-package project (in packages.manifest), or it is a project itself.
+            var args = new string[] { "status", "-d", folderPath, "-a" };
+            var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, CancellationToken.None);
+            return exitCode == 0;
+        }
+
+        public static async Task<bool> IsPackageRootFolderNoIndexAsync(string folderPath, bool verify)
         {
             // Determine based on existence of manifest file
             // @todo: without verifying that the package also exists in packages.manifest, this is flaky,
@@ -83,7 +94,7 @@ namespace B2VS.Workspace
             var matches = Directory.EnumerateFiles(folderPath, Build2Constants.PackageManifestFilename);
             if (matches.Count() == 1)
             {
-                return true;
+                return !verify || await VerifyValidPackageNoIndexAsync(folderPath);
             }
             Debug.Assert(matches.Count() == 0); // Assuming above search pattern looks for exact match...?
             return false;
@@ -94,15 +105,19 @@ namespace B2VS.Workspace
         /// </summary>
         /// <param name="filePath"></param>
         /// <returns></returns>
-        public static async Task<string> GetContainingPackagePathNoIndexAsync(IWorkspace workspaceContext, string filePath)
+        public static async Task<string> GetContainingPackagePathNoIndexAsync(IWorkspace workspaceContext, string filePath, bool verify)
         {
             var rootDirName = workspaceContext.Location;
             var dir = new DirectoryInfo(Path.GetDirectoryName(filePath));
-            while (dir.Exists && dir.FullName != rootDirName)
+            while (dir.Exists)
             {
-                if (IsPackageRootFolderNoIndex(dir.FullName))
+                if (await IsPackageRootFolderNoIndexAsync(dir.FullName, verify))
                 {
                     return dir.FullName;
+                }
+                if (dir.FullName == rootDirName)
+                {
+                    break;
                 }
                 dir = dir.Parent;
             }

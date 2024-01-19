@@ -65,26 +65,26 @@ namespace B2VS.Contexts
 
                     OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} packages in package manifest", manifests.Count()));
 
-                    //
-                    //{
-                    //    var configs = await Build2Configs.EnumerateBuildConfigsForProjectPathAsync(workspaceContext.Location, cancellationToken);
-                    //    results.AddRange(configs.Select(cfg => new FileDataValue(
-                    //        BuildConfigurationContext.ContextTypeGuid,
-                    //        BuildConfigurationContext.DataValueName,
-                    //        null, // value
-                    //        context: cfg.BuildConfiguration
-                    //        )));
-                    //}
-                    //
+                    ////
+                    ////{
+                    ////    var configs = await Build2Configs.EnumerateBuildConfigsForProjectPathAsync(workspaceContext.Location, cancellationToken);
+                    ////    results.AddRange(configs.Select(cfg => new FileDataValue(
+                    ////        BuildConfigurationContext.ContextTypeGuid,
+                    ////        BuildConfigurationContext.DataValueName,
+                    ////        null, // value
+                    ////        context: cfg.BuildConfiguration
+                    ////        )));
+                    ////}
+                    ////
 
-                    // Ask bdep for the configurations the project is initialized in, and index them.
-                    var configs = await Build2Configs.EnumerateBuildConfigsForProjectPathAsync(workspaceContext.Location, cancellationToken);
-                    results.AddRange(configs.Select(cfg => new FileDataValue(
-                        PackageIds.Build2ConfigDataValueTypeGuid,
-                        PackageIds.Build2ConfigDataValueName,
-                        cfg
-                        )));
-                    OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configurations for project", configs.Count()));
+                    //// Ask bdep for the configurations the project is initialized in, and index them.
+                    //var configs = await Build2Configs.EnumerateBuildConfigsForProjectPathAsync(workspaceContext.Location, cancellationToken);
+                    //results.AddRange(configs.Select(cfg => new FileDataValue(
+                    //    PackageIds.Build2ConfigDataValueTypeGuid,
+                    //    PackageIds.Build2ConfigDataValueName,
+                    //    cfg
+                    //    )));
+                    //OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configurations for project", configs.Count()));
 
                     OutputUtils.OutputWindowPaneAsync(string.Format("Package List Manifest scanner completed for: {0}", relativePath));
 
