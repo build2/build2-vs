@@ -60,7 +60,7 @@ namespace B2VS.ProjectModel
         {
             // @todo: need to better differentiate name vs path. think unnamed configs will use full path for BuildConfiguration,
             // but intent of this setting was to match config names only...
-            if (Build2Settings.get(workspace).GetProperty("ignore_build_context_patterns", out string[] ignoreConfigPatterns)
+            if (Build2Settings.get(workspace).GetProperty("ignoreBuildConfigPatterns", out string[] ignoreConfigPatterns)
                 == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
             {
                 return configs.Where(cfg => !ignoreConfigPatterns.Any(pattern => Regex.IsMatch(cfg.BuildConfiguration, pattern)));
