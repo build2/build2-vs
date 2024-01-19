@@ -16,6 +16,9 @@ using BuildContextTypes = Microsoft.VisualStudio.Workspace.Build.BuildContextTyp
 using B2VS.VSPackage;
 using B2VS.Toolchain;
 using B2VS.Language.Manifest;
+using System.Diagnostics;
+using B2VS.Workspace;
+using System.Text.RegularExpressions;
 
 namespace B2VS.Contexts
 {
@@ -38,7 +41,7 @@ namespace B2VS.Contexts
         private static readonly Guid ProviderCommandGroup = PackageIds.Build2GeneralCmdSet;
         private static readonly IReadOnlyList<CommandID> SupportedCommands = new List<CommandID>
             {
-                //new CommandID(ProviderCommandGroup, PackageIds.TestCmdId),
+                new CommandID(ProviderCommandGroup, PackageIds.TestCmdId),
             };
 
         public IFileContextActionProvider CreateProvider(IWorkspace workspaceContext)
@@ -205,107 +208,153 @@ namespace B2VS.Contexts
                             }
 */
 
-                            var configs = await Toolchain.Build2Configs.EnumerateBuildConfigsForProjectPathAsync(workspaceContext.Location, cancellationToken);
-                            using (var persistence = await settingsManager.GetPersistanceAsync(autoCommit: true))
+                            var indexService = workspaceContext.GetIndexWorkspaceService();
+
+                            // @NOTE: Current approach is to generate a separate CppProperties.json for each package in the workspace (irrespective of project).
+                            // VS will for any given source file search outwards (up to the top level workspace folder) for a CppProperties.json and use the first one it finds.
+                            // By generating one per package, it means we can potentially open a package subfolder and still get intellisense support, and may also give
+                            // an intellisense performance gain by not always using a single huge database containing all include paths.
+
+                            Func<string, bool> packageFilter = (string loc) =>
                             {
-                                var configSettings = new List<IWorkspaceSettingsSourceWriter>();
-                                var writer = await persistence.GetWriter(CppPropertiesSettingsType, ""); // @NOTE: Empty string -> workspace root.
-
-                                var existingEnvironments = writer.PropertyArray<IWorkspaceSettingsSourceWriter>("environments");
-                                var environments = existingEnvironments.ToList();
-                                var b2vsEnv = environments.Find(obj => obj.Property<string>("name", "") == Build2VSEnvironmentName);
-                                if (b2vsEnv == null)
+                                if (Build2Settings.get(workspaceContext).GetProperty("compileCommands", out IWorkspaceSettings compileCommandsSettings)
+                                    == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
                                 {
-                                    b2vsEnv = writer.CreateNew();
-                                    b2vsEnv.SetProperty("name", Build2VSEnvironmentName);
-                                    environments.Add(b2vsEnv);
-                                }
-                                // We specify an env var with an empty string value, so we can just use this inside auto-generated entries so we know which 
-                                // entries we can safely remove without stomping on entries manually added by users.
-                                // @TODO: this isn't actually implemented yet - we need to merge our updates with the existing settings.
-                                b2vsEnv.SetProperty(Build2VSGeneratedEnvVarName, "");
-
-                                var indexService = workspaceContext.GetIndexWorkspaceService();
-
-                                var packageLocations = await Workspace.Build2Workspace.EnumeratePackageLocationsAsync(workspaceContext);
-                                
-                                // For each package, retrieve name and list of build configs it's in.
-                                Func<string, Task<IEnumerable<Build2BuildConfiguration>>> packageLocationToBuildConfigs = async (string relPackageLocation) => //Build2Manifest manifest) =>
+                                    if (compileCommandsSettings.GetProperty("ignorePackagePatterns", out string[] ignorePackagePatterns)
+                                        == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
                                     {
-                                        var absPackageLocation = Path.Combine(workspaceContext.Location, relPackageLocation);
-                                        var packageManifestFilepath = Path.Combine(absPackageLocation, Build2Constants.PackageManifestFilename);
-                                        var packageBuildConfigValues = await indexService.GetFileDataValuesAsync<Build2BuildConfiguration>(packageManifestFilepath, PackageIds.Build2ConfigDataValueTypeGuid);
-                                        return packageBuildConfigValues.Select(entry => entry.Value);
-                                    };
-                                var packagesInfo = await Task.WhenAll(packageLocations.Select(async location =>
+                                        // @todo: consider package location vs name
+                                        return !ignorePackagePatterns.Any(pattern => Regex.IsMatch(loc, pattern));
+                                    }
+                                }
+                                return true;
+                            };
+
+                            Func<Build2BuildConfiguration, bool> configFilter = (Build2BuildConfiguration cfg) =>
+                            {
+                                if (Build2Settings.get(workspaceContext).GetProperty("compileCommands", out IWorkspaceSettings compileCommandsSettings)
+                                    == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
                                 {
+                                    if (compileCommandsSettings.GetProperty("ignoreBuildConfigPatterns", out string[] ignoreBuildConfigPatterns)
+                                        == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
+                                    {
+                                        return !ignoreBuildConfigPatterns.Any(pattern => Regex.IsMatch(cfg.BuildConfiguration, pattern));
+                                    }
+                                }
+                                return true;
+                            };
+
+                            var packageLocations = (await Workspace.Build2Workspace.EnumeratePackageLocationsAsync(workspaceContext)).Where(packageFilter);
+
+                            // For each package, retrieve name and list of build configs it's in.
+                            Func<string, Task<IEnumerable<Build2BuildConfiguration>>> packageLocationToBuildConfigs = async (string relPackageLocation) => //Build2Manifest manifest) =>
+                                {
+                                    var absPackageLocation = Path.Combine(workspaceContext.Location, relPackageLocation);
+                                    var packageManifestFilepath = Path.Combine(absPackageLocation, Build2Constants.PackageManifestFilename);
+                                    var packageBuildConfigValues = await indexService.GetFileDataValuesAsync<Build2BuildConfiguration>(packageManifestFilepath, PackageIds.Build2ConfigDataValueTypeGuid);
+                                    return packageBuildConfigValues.Select(entry => entry.Value);
+                                };
+
+                            await Task.WhenAll(packageLocations.Select(async location =>
+                                {
+                                    // Configurations the package is initialized in.
+                                    var configs = (await packageLocationToBuildConfigs(location)).Where(configFilter);
+
                                     // @todo: pull package name from package manifest data values (not yet implemented)
                                     //var location = entry.Value.Entries["location"];
-                                    string name;
+                                    string pkgName;
                                     // TEMPPPPPPPPPPPPP
                                     if (location == ".")
                                     {
-                                        name = "test";
+                                        //pkgName = "test";
+                                        Debug.Assert(false);
+                                        return;
                                     }
                                     else
                                     {
                                         var startIdx = location.LastIndexOf('/', location.Length - 2, location.Length - 1);
                                         startIdx = startIdx == -1 ? 0 : startIdx + 1;
-                                        name = location.Substring(startIdx, location.Length - startIdx - 1);
+                                        pkgName = location.Substring(startIdx, location.Length - startIdx - 1);
                                     }
                                     //
-                                    var packageConfigs = await packageLocationToBuildConfigs(location); //entry.Value);
-                                    return (name, packageConfigs);
+
+                                    using (var persistence = await settingsManager.GetPersistanceAsync(autoCommit: true))
+                                    {
+                                        var writer = await persistence.GetWriter(CppPropertiesSettingsType, location);
+                                        
+                                        // @todo: obviously just want to add our environment to the existing list if it doesn't already exist, but f knows how to achieve
+                                        // that with this insane api. if try to call set property with modified existing list it complains that "the node already has a parent".
+                                        // so for now we just stomp on any other entries that may have been there...
+
+                                        //var existingEnvironments = writer.PropertyArray<IWorkspaceSettingsSourceWriter>("environments");
+                                        //var environments = existingEnvironments.ToList();
+                                        //var b2vsEnv = environments.Find(obj => obj.Property<string>("name", "") == Build2VSEnvironmentName);
+                                        //if (b2vsEnv == null)
+                                        //{
+                                        //    b2vsEnv = writer.CreateNew();
+                                        //    environments.Add(b2vsEnv);
+                                        //}
+                                        //b2vsEnv.SetProperty("name", Build2VSEnvironmentName);
+                                        //b2vsEnv.SetProperty(Build2VSGeneratedEnvVarName, "");
+                                        //writer.Delete("environments");
+                                        //writer.SetProperty("environments", environments.ToArray());
+
+                                        {
+                                            var b2vsEnv = writer.CreateNew();
+                                            b2vsEnv.SetProperty("name", Build2VSEnvironmentName);
+                                            // We specify an env var with an empty string value, so we can just use this inside auto-generated entries so we know which 
+                                            // entries we can safely remove without stomping on entries manually added by users.
+                                            // @TODO: this isn't actually implemented yet - we need to merge our updates with the existing settings.
+                                            b2vsEnv.SetProperty(Build2VSGeneratedEnvVarName, "");
+
+                                            writer.Delete("environments");
+                                            writer.SetProperty("environments", new IWorkspaceSettingsSourceWriter[] { b2vsEnv });
+                                        }
+
+                                        var configSettings = new List<IWorkspaceSettingsSourceWriter>();
+                                        foreach (var config in configs)
+                                        {
+                                            var configPath = config.ConfigDir;
+                                            var packageBuildPath = Path.Combine(configPath, pkgName) + '/';
+
+                                            var compileCmds = await Build2CompileCommands.GenerateAsync(new string[] { packageBuildPath }, cancellationToken);
+                                            var includePaths = compileCmds.SelectMany(perTU => perTU.IncludePaths).Distinct();
+                                            var definitions = compileCmds.SelectMany(perTU => perTU.Definitions).Distinct();
+                                            var compilerOptions = compileCmds.SelectMany(perTU => perTU.CompilerOptions).Distinct();
+
+                                            //await OutputUtils.OutputWindowPaneAsync(
+                                            //    String.Format("Compile commands:\nInclude:\n{0}\nDefines:\n{1}",
+                                            //    String.Join("\n", includePaths),
+                                            //    String.Join("\n", definitions)));
+
+                                            var configEntry = writer.CreateNew();
+                                            configEntry.SetProperty("name", config.BuildConfiguration);
+
+                                            {
+                                                var convertedPaths = new List<string>(new string[] { "${env.INCLUDE}" });
+                                                convertedPaths.AddRange(includePaths.Select(path => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, path)));
+                                                configEntry.SetProperty("includePath", convertedPaths.ToArray());
+                                            }
+                                            {
+                                                var convertedDefines = new List<string>();
+                                                convertedDefines.AddRange(definitions.Select(def => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, def)));
+                                                configEntry.SetProperty("defines", convertedDefines.ToArray());
+                                            }
+                                            {
+                                                // @note: Appears variables can't be expanded inside of the compilerSwitches property...
+                                                //var convertedCompilerOptions = new List<string>();
+                                                //convertedCompilerOptions.AddRange(compilerOptions.Select(opt => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, opt)));
+                                                configEntry.SetProperty("compilerSwitches", String.Join(" ", compilerOptions));// convertedCompilerOptions));
+                                            }
+
+                                            configSettings.Add(configEntry);
+                                        }
+
+                                        writer.Delete("configurations"); // @todo: see above, should maintain anything existing that we didn't generate
+                                        writer.SetProperty("configurations", configSettings.ToArray());
+                                    }
                                 }).ToList());
-
-                                foreach (var config in configs)
-                                {
-                                    var configPath = config.ConfigDir;
-                                    
-                                    // For each config, we just issue build commands for the packages in the project; don't want to spend time
-                                    // and bloat the compile commands with entries for building out-of-project dependencies.
-                                    var packagesInConfig = packagesInfo
-                                        .Where(entry => entry.packageConfigs.Any(cfg => cfg.BuildConfiguration == config.BuildConfiguration))
-                                        .Select(entry => entry.name);
-
-                                    var buildTargets = packagesInConfig.Select(pkgName => Path.Combine(configPath, pkgName) + '/');
-
-                                    var compileCmds = await Build2CompileCommands.GenerateAsync(buildTargets, cancellationToken);
-                                    var includePaths = compileCmds.SelectMany(perTU => perTU.IncludePaths).Distinct();
-                                    var definitions = compileCmds.SelectMany(perTU => perTU.Definitions).Distinct();
-                                    var compilerOptions = compileCmds.SelectMany(perTU => perTU.CompilerOptions).Distinct();
-
-                                    //await OutputUtils.OutputWindowPaneAsync(
-                                    //    String.Format("Compile commands:\nInclude:\n{0}\nDefines:\n{1}",
-                                    //    String.Join("\n", includePaths),
-                                    //    String.Join("\n", definitions)));
-
-                                    var configEntry = writer.CreateNew();
-                                    configEntry.SetProperty("name", config.BuildConfiguration);
-
-                                    {
-                                        var convertedPaths = new List<string>(new string[] { "${env.INCLUDE}" });
-                                        convertedPaths.AddRange(includePaths.Select(path => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, path)));
-                                        configEntry.SetProperty("includePath", convertedPaths.ToArray());
-                                    }
-                                    {
-                                        var convertedDefines = new List<string>();
-                                        convertedDefines.AddRange(definitions.Select(def => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, def)));
-                                        configEntry.SetProperty("defines", convertedDefines.ToArray());
-                                    }
-                                    {
-                                        // @note: Appears variables can't be expanded inside of the compilerSwitches property...
-                                        //var convertedCompilerOptions = new List<string>();
-                                        //convertedCompilerOptions.AddRange(compilerOptions.Select(opt => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, opt)));
-                                        configEntry.SetProperty("compilerSwitches", String.Join(" ", compilerOptions));// convertedCompilerOptions));
-                                    }
-
-                                    configSettings.Add(configEntry);
-                                }
-
-                                writer.SetProperty("environments", environments.ToArray());
-                                writer.SetProperty("configurations", configSettings.ToArray());
-                            }
+                                
 
                             //var configService = await workspaceContext.GetProjectConfigurationServiceAsync();
                             //string curProjectMsg = configService.CurrentProject != null ?
@@ -320,7 +369,8 @@ namespace B2VS.Contexts
                             //await OutputUtils.OutputWindowPaneRawAsync(temp);
 
                             return true;
-                        }),
+                        }){
+                    },
                     });
                 }
 
