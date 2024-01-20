@@ -34,6 +34,11 @@ namespace B2VS.Toolchain
             
             string[] knownCompilerOptionPrefixes = new string[]{
                 "/std:",
+                "/experimental:",
+                "/Zc:",
+                "/permissive",
+                "/utf8",
+
                 "-std=",
                 "--std=",
                 // @todo: need to support options specified with 2 tokens, eg: --std c++20
