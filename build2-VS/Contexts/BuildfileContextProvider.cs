@@ -76,7 +76,8 @@ namespace B2VS.Contexts
                     // currently, the latter case is just not dealt with.
                     var basePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath,
                         // if package isn't valid then we'll simply get no configs from below GetIndexedBuildConfigurationsForPathAsync call
-                        verify: false);
+                        verify: false,
+                        cancellationToken: cancellationToken);
 
                     inflight = Interlocked.Decrement(ref inflightCount);
                     OutputUtils.OutputWindowPaneAsync(string.Format("Inflight-- -> {0}", inflight));
