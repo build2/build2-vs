@@ -244,7 +244,8 @@ namespace B2VS.Contexts
                                 return true;
                             };
 
-                            var packageLocations = (await Workspace.Build2Workspace.EnumeratePackageLocationsAsync(workspaceContext)).Where(packageFilter);
+                            var unfilteredPackageLocations = await Workspace.Build2Workspace.EnumeratePackageLocationsAsync(workspaceContext, cancellationToken);
+                            var packageLocations = unfilteredPackageLocations.Where(packageFilter);
 
                             // For each package, retrieve name and list of build configs it's in.
                             Func<string, Task<IEnumerable<Build2BuildConfiguration>>> packageLocationToBuildConfigs = async (string relPackageLocation) => //Build2Manifest manifest) =>
@@ -261,22 +262,8 @@ namespace B2VS.Contexts
                                     var configs = (await packageLocationToBuildConfigs(location)).Where(configFilter);
 
                                     // @todo: pull package name from package manifest data values (not yet implemented)
-                                    //var location = entry.Value.Entries["location"];
-                                    string pkgName;
-                                    // TEMPPPPPPPPPPPPP
-                                    if (location == ".")
-                                    {
-                                        //pkgName = "test";
-                                        Debug.Assert(false);
-                                        return;
-                                    }
-                                    else
-                                    {
-                                        var startIdx = location.LastIndexOf('/', location.Length - 2, location.Length - 1);
-                                        startIdx = startIdx == -1 ? 0 : startIdx + 1;
-                                        pkgName = location.Substring(startIdx, location.Length - startIdx - 1);
-                                    }
-                                    //
+                                    // for now assuming directory name is package name
+                                    string pkgName = Path.GetFileName(location);
 
                                     using (var persistence = await settingsManager.GetPersistanceAsync(autoCommit: true))
                                     {
