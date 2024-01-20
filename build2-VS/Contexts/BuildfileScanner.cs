@@ -81,7 +81,7 @@ namespace B2VS.Contexts
 
                     // Determine containing package
 
-                    var packagePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath, verify: true);
+                    var packagePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath, verify: true, cancellationToken: cancellationToken);
                     if (packagePath != null)
                     {
                         // Grab cached build configurations for our package
