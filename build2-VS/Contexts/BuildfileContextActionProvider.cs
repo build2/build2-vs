@@ -86,11 +86,11 @@ namespace B2VS.Contexts
 
             public Task<IReadOnlyList<IFileContextAction>> GetActionsAsync(string filePath, FileContext fileContext, CancellationToken cancellationToken)
             {
-                OutputUtils.OutputWindowPaneAsync(string.Format("Actions requested for {0}...", filePath));
+                Build2Toolchain.DebugHandler?.Invoke(string.Format("Actions requested for {0}...", filePath));
 
-                MyContextAction CreateMultiBuildAction(uint cmdId, IEnumerable<string[]> cmdArgs)
+                SimpleContextAction CreateMultiBuildAction(uint cmdId, IEnumerable<string[]> cmdArgs)
                 {
-                    return new MyContextAction(
+                    return new SimpleContextAction(
                         fileContext,
                         new Tuple<Guid, uint>(PackageIds.BuildCommandGroupGuid, cmdId),
                         "", // @NOTE: Unused as the display name for the built in 'Build' action will be used.
@@ -111,7 +111,7 @@ namespace B2VS.Contexts
                         });
                 }
 
-                MyContextAction CreateSingleBuildAction(uint cmdId, string[] cmdArgs)
+                SimpleContextAction CreateSingleBuildAction(uint cmdId, string[] cmdArgs)
                 {
                     return CreateMultiBuildAction(cmdId, new List<string[]>
                     {
@@ -186,13 +186,13 @@ namespace B2VS.Contexts
                     return Task.FromResult<IReadOnlyList<IFileContextAction>>(new IFileContextAction[]
                     {
                     // Test command:
-                    new MyContextAction(
+                    new SimpleContextAction(
                         fileContext,
                         new Tuple<Guid, uint>(ProviderCommandGroup, PackageIds.TestCmdId),
-                        "Looks like a buildfile...", //+ fileContext.DisplayName,
+                        "Regenerate intellisense commands", //+ fileContext.DisplayName,
                         async (fCtxt, progress, ct) =>
                         {
-                            await OutputUtils.OutputWindowPaneAsync("Yup! " + fCtxt.Context.ToString());
+                            await OutputUtils.OutputWindowPaneAsync("Beginning regeneration of compiler commands...");
 
                             const string CppPropertiesSettingsType = "CppProperties";
 
@@ -220,11 +220,16 @@ namespace B2VS.Contexts
                                 if (Build2Settings.get(workspaceContext).GetProperty("compileCommands", out IWorkspaceSettings compileCommandsSettings)
                                     == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
                                 {
+                                    // @todo: if switch .get to using scoped settings, this doesn't really make sense since packages exist at a specific subtree.
+                                    // so it would seem instead a bool setting 'suppressCompileCommands' would make more sense.
                                     if (compileCommandsSettings.GetProperty("ignorePackagePatterns", out string[] ignorePackagePatterns)
                                         == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
                                     {
                                         // @todo: consider package location vs name
-                                        return !ignorePackagePatterns.Any(pattern => Regex.IsMatch(loc, pattern));
+                                        return !ignorePackagePatterns.Any(pattern => {
+                                            var match = Regex.Match(loc, pattern);
+                                            return match.Success; // && match.Length == loc.Length;
+                                        });
                                     }
                                 }
                                 return true;
@@ -238,7 +243,10 @@ namespace B2VS.Contexts
                                     if (compileCommandsSettings.GetProperty("ignoreBuildConfigPatterns", out string[] ignoreBuildConfigPatterns)
                                         == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
                                     {
-                                        return !ignoreBuildConfigPatterns.Any(pattern => Regex.IsMatch(cfg.BuildConfiguration, pattern));
+                                        return !ignoreBuildConfigPatterns.Any(pattern => {
+                                            var match = Regex.Match(cfg.BuildConfiguration, pattern);
+                                            return match.Success && match.Length == cfg.BuildConfiguration.Length;
+                                        });
                                     }
                                 }
                                 return true;
@@ -258,12 +266,15 @@ namespace B2VS.Contexts
 
                             await Task.WhenAll(packageLocations.Select(async location =>
                                 {
-                                    // Configurations the package is initialized in.
-                                    var configs = (await packageLocationToBuildConfigs(location)).Where(configFilter);
-
                                     // @todo: pull package name from package manifest data values (not yet implemented)
                                     // for now assuming directory name is package name
                                     string pkgName = Path.GetFileName(location);
+
+                                    // Configurations the package is initialized in.
+                                    var unfilteredConfigs = await packageLocationToBuildConfigs(location);
+                                    var configs = unfilteredConfigs.Where(configFilter);
+
+                                    await OutputUtils.OutputWindowPaneAsync(string.Format("Package {0}: {1}/{2} configurations passed filter.", pkgName, configs.Count(), unfilteredConfigs.Count()));
 
                                     using (var persistence = await settingsManager.GetPersistanceAsync(autoCommit: true))
                                     {
@@ -298,47 +309,49 @@ namespace B2VS.Contexts
                                             writer.SetProperty("environments", new IWorkspaceSettingsSourceWriter[] { b2vsEnv });
                                         }
 
-                                        var configSettings = new List<IWorkspaceSettingsSourceWriter>();
-                                        foreach (var config in configs)
-                                        {
-                                            var configPath = config.ConfigDir;
-                                            var packageBuildPath = Path.Combine(configPath, pkgName) + '/';
-
-                                            var compileCmds = await Build2CompileCommands.GenerateAsync(new string[] { packageBuildPath }, cancellationToken);
-                                            var includePaths = compileCmds.SelectMany(perTU => perTU.IncludePaths).Distinct();
-                                            var definitions = compileCmds.SelectMany(perTU => perTU.Definitions).Distinct();
-                                            var compilerOptions = compileCmds.SelectMany(perTU => perTU.CompilerOptions).Distinct();
-
-                                            //await OutputUtils.OutputWindowPaneAsync(
-                                            //    String.Format("Compile commands:\nInclude:\n{0}\nDefines:\n{1}",
-                                            //    String.Join("\n", includePaths),
-                                            //    String.Join("\n", definitions)));
-
-                                            var configEntry = writer.CreateNew();
-                                            configEntry.SetProperty("name", config.BuildConfiguration);
-
-                                            {
-                                                var convertedPaths = new List<string>(new string[] { "${env.INCLUDE}" });
-                                                convertedPaths.AddRange(includePaths.Select(path => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, path)));
-                                                configEntry.SetProperty("includePath", convertedPaths.ToArray());
-                                            }
-                                            {
-                                                var convertedDefines = new List<string>();
-                                                convertedDefines.AddRange(definitions.Select(def => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, def)));
-                                                configEntry.SetProperty("defines", convertedDefines.ToArray());
-                                            }
-                                            {
-                                                // @note: Appears variables can't be expanded inside of the compilerSwitches property...
-                                                //var convertedCompilerOptions = new List<string>();
-                                                //convertedCompilerOptions.AddRange(compilerOptions.Select(opt => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, opt)));
-                                                configEntry.SetProperty("compilerSwitches", String.Join(" ", compilerOptions));// convertedCompilerOptions));
-                                            }
-
-                                            configSettings.Add(configEntry);
-                                        }
-
                                         writer.Delete("configurations"); // @todo: see above, should maintain anything existing that we didn't generate
-                                        writer.SetProperty("configurations", configSettings.ToArray());
+                                        if (configs.Count() > 0)
+                                        {
+                                            var configSettings = new List<IWorkspaceSettingsSourceWriter>();
+                                            foreach (var config in configs)
+                                            {
+                                                var configPath = config.ConfigDir;
+                                                var packageBuildPath = Path.Combine(configPath, pkgName) + '/';
+
+                                                var compileCmds = await Build2CompileCommands.GenerateAsync(new string[] { packageBuildPath }, cancellationToken);
+                                                var includePaths = compileCmds.SelectMany(perTU => perTU.IncludePaths).Distinct();
+                                                var definitions = compileCmds.SelectMany(perTU => perTU.Definitions).Distinct();
+                                                var compilerOptions = compileCmds.SelectMany(perTU => perTU.CompilerOptions).Distinct();
+
+                                                //await OutputUtils.OutputWindowPaneAsync(
+                                                //    String.Format("Compile commands:\nInclude:\n{0}\nDefines:\n{1}",
+                                                //    String.Join("\n", includePaths),
+                                                //    String.Join("\n", definitions)));
+
+                                                var configEntry = writer.CreateNew();
+                                                configEntry.SetProperty("name", config.BuildConfiguration);
+
+                                                {
+                                                    var convertedPaths = new List<string>(new string[] { "${env.INCLUDE}" });
+                                                    convertedPaths.AddRange(includePaths.Select(path => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, path)));
+                                                    configEntry.SetProperty("includePath", convertedPaths.ToArray());
+                                                }
+                                                {
+                                                    var convertedDefines = new List<string>();
+                                                    convertedDefines.AddRange(definitions.Select(def => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, def)));
+                                                    configEntry.SetProperty("defines", convertedDefines.ToArray());
+                                                }
+                                                {
+                                                    // @note: Appears variables can't be expanded inside of the compilerSwitches property...
+                                                    //var convertedCompilerOptions = new List<string>();
+                                                    //convertedCompilerOptions.AddRange(compilerOptions.Select(opt => String.Format("${{env.{0}}}{1}", Build2VSGeneratedEnvVarName, opt)));
+                                                    configEntry.SetProperty("compilerSwitches", String.Join(" ", compilerOptions));// convertedCompilerOptions));
+                                                }
+
+                                                configSettings.Add(configEntry);
+                                            }
+                                            writer.SetProperty("configurations", configSettings.ToArray());
+                                        }
                                     }
                                 }).ToList());
                                 
@@ -354,6 +367,8 @@ namespace B2VS.Contexts
                             //    temp += string.Format("{0} | {1}\n", cfg.FilePath, cfg.Target);
                             //}
                             //await OutputUtils.OutputWindowPaneRawAsync(temp);
+
+                            await OutputUtils.OutputWindowPaneAsync("Compiler command generation completed.");
 
                             return true;
                         }){
@@ -382,9 +397,9 @@ namespace B2VS.Contexts
                     });
             }
 
-            internal class MyContextAction : IFileContextAction, IVsCommandItem
+            internal class SimpleContextAction : IFileContextAction, IVsCommandItem
             {
-                internal MyContextAction(
+                internal SimpleContextAction(
                     FileContext fileContext,
                     Tuple<Guid, uint> command,
                     string displayName,
