@@ -199,7 +199,7 @@ namespace B2VS.Toolchain
             BPkg = new Build2Tool(BPkg_Executable);
             BDep = new Build2Tool(BDep_Executable);
 
-#if true //DEBUG
+#if DEBUG
             DebugHandler = (string line) => OutputUtils.OutputWindowPaneAsync(line);
 #endif
         }
