@@ -81,38 +81,38 @@ namespace B2VS.Contexts
 
                     // Determine containing package
 
-                    var packagePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath, verify: true, cancellationToken: cancellationToken);
-                    if (packagePath != null)
-                    {
-                        // Grab cached build configurations for our package
-                        var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
+                    //var packagePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath, verify: true, cancellationToken: cancellationToken);
+                    //if (packagePath != null)
+                    //{
+                    //    // Grab cached build configurations for our package
+                    //    var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
 
-                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext, cancellationToken);
-                        results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
-                            BuildConfigurationContext.ContextTypeGuid,
-                            BuildConfigurationContext.DataValueName,
-                            value: null,
-                            target: null,
-                            context: cfg.BuildConfiguration
-                        )));
+                    //    var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext, cancellationToken);
+                    //    results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
+                    //        BuildConfigurationContext.ContextTypeGuid,
+                    //        BuildConfigurationContext.DataValueName,
+                    //        value: null,
+                    //        target: null,
+                    //        context: cfg.BuildConfiguration
+                    //    )));
 
-                        // @todo: enumerate exe targets within the buildfile
+                    //    // @todo: enumerate exe targets within the buildfile
 
-                        var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
-                        string tempTargetName = buildfileDir.Name;
-                        // @todo: pull pkg name from index
-                        var packageDir = new DirectoryInfo(packagePath);
+                    //    var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
+                    //    string tempTargetName = buildfileDir.Name;
+                    //    // @todo: pull pkg name from index
+                    //    var packageDir = new DirectoryInfo(packagePath);
 
-                        // Just restricting startup items (which can also be built from the top menu) to packages for now.
-                        if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
-                        {
-                            string pkgName = packageDir.Name;
-                            string name = $"{tempTargetName} [{pkgName}]";
-                            AddStartupItem(name);
-                        }
+                    //    // Just restricting startup items (which can also be built from the top menu) to packages for now.
+                    //    if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
+                    //    {
+                    //        string pkgName = packageDir.Name;
+                    //        string name = $"{tempTargetName} [{pkgName}]";
+                    //        AddStartupItem(name);
+                    //    }
 
-                        OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
-                    }
+                    //    OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
+                    //}
 
                     OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
                     return (T)(IReadOnlyCollection<FileDataValue>)results;
