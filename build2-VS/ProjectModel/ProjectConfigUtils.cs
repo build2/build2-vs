@@ -4,11 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using Microsoft.VisualStudio.Workspace;
 using B2VS.Toolchain;
 using B2VS.VSPackage;
 using System.IO.Packaging;
 using System.Threading;
+using B2VS.Workspace;
 
 namespace B2VS.ProjectModel
 {
@@ -23,16 +25,17 @@ namespace B2VS.ProjectModel
         /// <param name="path">Assumed to identify either a package, or the top level project.</param>
         /// <param name="workspace"></param>
         /// <returns></returns>
-        public static async Task<IEnumerable<Build2BuildConfiguration>> GetIndexedBuildConfigurationsForPathAsync(string path, IWorkspace workspace)
+        public static async Task<IEnumerable<Build2BuildConfiguration>> GetIndexedBuildConfigurationsForPathAsync(string path, IWorkspace workspace, CancellationToken cancellationToken)
         {
-            var indexService = workspace.GetIndexWorkspaceService();
             // Appears to be no sane way to reliably compare paths...
-            bool isProject = workspace.MakeRooted(path) == workspace.Location;
-            var entityPath = isProject && Workspace.Build2Workspace.IsMultiPackageProject(workspace) ?
+            bool isProject = false; // workspace.MakeRooted(path) == workspace.Location;
+            bool isMultiPackageProjectLevelRequest = isProject && Workspace.Build2Workspace.IsMultiPackageProject(workspace);
+            var entityPath = isMultiPackageProjectLevelRequest ?
                 Path.Combine(workspace.Location, Build2Constants.PackageListManifestFilename) :
                 Path.Combine(path, Build2Constants.PackageManifestFilename);
-            var buildConfigValues = await indexService.GetFileDataValuesAsync<Build2BuildConfiguration>(entityPath, PackageIds.Build2ConfigDataValueTypeGuid);
-            return buildConfigValues.Select(entry => entry.Value);
+            var indexService = workspace.GetIndexWorkspaceService();
+            var buildConfigValues = await indexService.GetFileDataValuesAsync<Build2BuildConfiguration>(entityPath, PackageIds.Build2ConfigDataValueTypeGuid, cancellationToken: cancellationToken);
+            return FilterBuildConfigurationsBySettings(buildConfigValues.Select(entry => entry.Value), workspace);
         }
 
         /// <summary>
@@ -41,33 +44,31 @@ namespace B2VS.ProjectModel
         /// <param name="path">Assumed to identify either a package, or the top level project.</param>
         /// <param name="workspace"></param>
         /// <returns></returns>
-        public static async Task<IEnumerable<Build2BuildConfiguration>> GetBuildConfigurationsForPathOnDemandAsync(string path, IWorkspace workspace)
+        public static async Task<IEnumerable<Build2BuildConfiguration>> GetBuildConfigurationsForPathOnDemandAsync(string path, IWorkspace workspace, CancellationToken cancellationToken)
         {
             // Appears to be no sane way to reliably compare paths...
-            bool isProject = workspace.MakeRooted(path) == workspace.Location;
+            bool isProject = false;// workspace.MakeRooted(path) == workspace.Location;
             bool isMultiPackageProjectLevelRequest = isProject && Workspace.Build2Workspace.IsMultiPackageProject(workspace);
             // @todo: receive optional cancellation token
             var configs = isMultiPackageProjectLevelRequest ?
-                await Build2Configs.EnumerateBuildConfigsForProjectPathAsync(path, CancellationToken.None)
-                : await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(path, CancellationToken.None);
-            return configs;
+                await Build2Configs.EnumerateBuildConfigsForProjectPathAsync(path, cancellationToken)
+                : await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(path, cancellationToken);
+            return FilterBuildConfigurationsBySettings(configs, workspace);
         }
 
-        /// <summary>
-        /// Returns a list of known build configurations associated with path, trying the index service first, and falling back
-        /// onto build2 invocations if there is no index data available.
-        /// </summary>
-        /// <param name="path">Assumed to identify either a package, or the top level project.</param>
-        /// <param name="workspace"></param>
-        /// <returns></returns>
-        public static async Task<IEnumerable<Build2BuildConfiguration>> GetBuildConfigurationsForPathAsync(string path, IWorkspace workspace)
+        private static IEnumerable<Build2BuildConfiguration> FilterBuildConfigurationsBySettings(IEnumerable<Build2BuildConfiguration> configs, IWorkspace workspace)
         {
-            var configs = await GetIndexedBuildConfigurationsForPathAsync(path, workspace);
-            if (configs.Count() == 0)
+            // @todo: need to better differentiate name vs path. think unnamed configs will use full path for BuildConfiguration,
+            // but intent of this setting was to match config names only...
+            if (Build2Settings.get(workspace).GetProperty("ignoreBuildConfigPatterns", out string[] ignoreConfigPatterns)
+                == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
             {
-                configs = await GetBuildConfigurationsForPathOnDemandAsync(path, workspace);
+                return configs.Where(cfg => !ignoreConfigPatterns.Any(pattern => Regex.IsMatch(cfg.BuildConfiguration, pattern)));
             }
-            return configs;
+            else
+            {
+                return configs;
+            }
         }
     }
 }

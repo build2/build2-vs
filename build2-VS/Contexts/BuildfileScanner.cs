@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Text.Json;
 using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.Workspace;
@@ -81,57 +82,64 @@ namespace B2VS.Contexts
 
                     // Determine containing package
 
-                    var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath);
-                    if (packagePath != null)
+                    //var packagePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath, verify: true, cancellationToken: cancellationToken);
+                    //if (packagePath != null)
+                    //{
+                    //    // Grab cached build configurations for our package
+                    //    var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
+
+                    //    var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext, cancellationToken);
+                    //    results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
+                    //        BuildConfigurationContext.ContextTypeGuid,
+                    //        BuildConfigurationContext.DataValueName,
+                    //        value: null,
+                    //        target: null,
+                    //        context: cfg.BuildConfiguration
+                    //    )));
+
+                    //    // @todo: enumerate exe targets within the buildfile
+
+                    //    var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
+                    //    string tempTargetName = buildfileDir.Name;
+                    //    // @todo: pull pkg name from index
+                    //    var packageDir = new DirectoryInfo(packagePath);
+
+                    //    // Just restricting startup items (which can also be built from the top menu) to packages for now.
+                    //    if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
+                    //    {
+                    //        string pkgName = packageDir.Name;
+                    //        string name = $"{tempTargetName} [{pkgName}]";
+                    //        AddStartupItem(name);
+                    //    }
+
+                    //    OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
+                    //}
+
+                    // Target enumeration
                     {
-                        // Grab cached build configurations for our package
-                        var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
-
-                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathAsync(packagePath, workspaceContext);
-                        results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
-                            BuildConfigurationContext.ContextTypeGuid,
-                            BuildConfigurationContext.DataValueName,
-                            value: null,
-                            target: null,
-                            context: cfg.BuildConfiguration
-                        )));
-
-                        // @todo: enumerate exe targets within the buildfile
-
-                        var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
-                        string tempTargetName = buildfileDir.Name;
-                        // @todo: pull pkg name from index
-                        var packageDir = new DirectoryInfo(packagePath);
-
-                        // Just restricting startup items (which can also be built from the top menu) to packages for now.
-                        if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
+                        var targetPath = Path.GetDirectoryName(filePath) + '/';
+                        var jsonDumpStr = "";
+                        var stdErr = "";
+                        Action<string> outputHandler = (string line) => jsonDumpStr += line;
+                        Action<string> errorHandler = (string line) => stdErr += line;
+                        var exitCode = await Build2Toolchain.B.InvokeQueuedAsync(
+                            // @NOTE: --dump-scope=x, if x is relative it appears to be interpreted relative to cwd, not path of the given target
+                            new string[] { "--load-only", "--dump=load", string.Format("--dump-scope={0}", targetPath), "--dump-format=json-v0.1", targetPath },
+                            cancellationToken,
+                            outputHandler,
+                            errorHandler);
+                        if (exitCode != 0)
                         {
-                            string pkgName = packageDir.Name;
-                            string name = $"{tempTargetName} [{pkgName}]";
-                            AddStartupItem(name);
+                            throw new Exception(string.Format("'b --dump' failed: {0}", stdErr));
                         }
 
-                        OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
-                    }
-                    else
-                    {
-                        // @todo: for now assuming this means not in a package (at project level), rather than 'indexed data not available'.
-                        // Also, for the moment no attempt to build subtrees, just build the whole project. Should probably generate a list of
-                        // package paths to pass to bdep, including every package located below us in the folder structure.
+                        var json = JsonSerializer.Deserialize<Toolchain.Json.B.DumpLoad.BuildLoadStatus>(jsonDumpStr);
+                        if (json == null)
+                        {
+                            throw new Exception("'b --dump' json output not parseable");
+                        }
 
-                        // Grab cached build configurations for project
-                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathAsync(workspaceContext.Location, workspaceContext);
-                        results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
-                            BuildConfigurationContext.ContextTypeGuid,
-                            BuildConfigurationContext.DataValueName,
-                            null,
-                            context: cfg.BuildConfiguration
-                            )));
-
-                        var rootDir = new DirectoryInfo(workspaceContext.Location);
-                        AddStartupItem(rootDir.Name);
-
-                        OutputUtils.OutputWindowPaneAsync(string.Format("Using project-level configs ({0}) for '{1}'", buildConfigs.Count(), relativePath));
+                        // @pending
                     }
 
                     OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));

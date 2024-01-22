@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Microsoft.VisualStudio.Workspace.Build;
 using BCLConfig = B2VS.Toolchain.Json.Bdep.Config.List.Configuration;
 using BSConfigStatus = B2VS.Toolchain.Json.Bdep.Status.ConfigurationPackageStatus;
+using B2VS.Exceptions;
 
 namespace B2VS.Toolchain
 {
@@ -63,10 +64,12 @@ namespace B2VS.Toolchain
             {
                 var args = new string[] { "status", "-d", packagePath, "-a", "--stdout-format", "json" };
                 Action<string> outputHandler = (string line) => jsonOutput += line;
-                var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
+                var errors = "";
+                Action<string> errorHandler = (string line) => errors += line;
+                var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler, stdErrHandler: errorHandler);
                 if (exitCode != 0)
                 {
-                    throw new Exception("'bdep status' failed");
+                    throw new InvalidPackageException(string.Format("'bdep status' failed with: {0}", errors));
                 }
             }
 
@@ -81,7 +84,14 @@ namespace B2VS.Toolchain
                 return new Build2BuildConfiguration(configStatusJson.configuration.name ?? configStatusJson.configuration.path, configStatusJson.configuration.path);
             };
 
-            return configStatusesJson.Select(convertConfigStatus).ToList();
+            // @TODO: don't think build2 actually requires the package folder name to match the package name??
+            // need to refactor to always pass in package name if possible.
+            var packageName = System.IO.Path.GetFileName(packagePath);
+
+            return configStatusesJson
+                // Filter to configurations in which this package exists and is configured.
+                .Where(cfgStatus => cfgStatus.packages.Any(pkgStatus => string.Compare(pkgStatus.name, packageName, StringComparison.OrdinalIgnoreCase) == 0 && pkgStatus.status == "configured"))
+                .Select(convertConfigStatus).ToList();
         }
     }
 }

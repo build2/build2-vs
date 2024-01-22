@@ -49,6 +49,7 @@
     <Compile Include="Contexts\CppSettingsProvider.cs" />
     <Compile Include="Contexts\PackageManifestContextProvider.cs" />
     <Compile Include="Contexts\PackageManifestScanner.cs" />
+    <Compile Include="Exceptions\InvalidPackageException.cs" />
     <Compile Include="ProjectModel\Project.cs" />
     <Compile Include="ProjectModel\ProjectConfigUtils.cs" />
     <Compile Include="ProjectModel\ProjectPackage.cs" />
@@ -72,6 +73,7 @@
     <Compile Include="Utilities\PathUtils.cs" />
     <Compile Include="VSPackage\B2VSPackage.cs" />
     <Compile Include="VSPackage\PackageIds.cs" />
+    <Compile Include="Workspace\Build2Settings.cs" />
     <Compile Include="Workspace\Build2Workspace.cs" />
     <Compile Include="Workspace\Build2WorkspaceNodeExtender.cs" />
     <Compile Include="Workspace\CmdHandler_PackageBuild.cs" />
@@ -84,20 +86,20 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="PresentationFramework" />
     <Reference Include="System" />
     <Reference Include="System.Data" />
     <Reference Include="System.Design" />
     <Reference Include="System.Drawing" />
-    <Reference Include="System.Text.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.VisualStudio.Text.Logic">
-      <Version>17.0.491</Version>
+      <Version>17.8.222</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Text.UI.Wpf">
-      <Version>17.0.491</Version>
+      <Version>17.8.222</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Workspace">
       <Version>16.3.43</Version>
@@ -109,9 +111,12 @@
       <Version>16.3.43</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VSSDK.BuildTools">
-      <Version>17.0.5234</Version>
+      <Version>17.8.2365</Version>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="System.Text.Json">
+      <Version>7.0.4</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
