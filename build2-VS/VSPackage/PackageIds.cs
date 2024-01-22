@@ -22,6 +22,9 @@ namespace B2VS.VSPackage
         public static readonly Guid PackageListManifestEntryDataValueTypeGuid = new Guid(PackageListManifestEntryDataValueTypeStr);
         public const string PackageListManifestEntryDataValueName = nameof(PackageListManifestEntryDataValueName);
 
+        public const string PackageManifestEntryDataValueTypeStr = "{599C8121-EDDC-4F85-A552-377361B90EFF}";
+        public static readonly Guid PackageManifestEntryDataValueTypeGuid = new Guid(PackageManifestEntryDataValueTypeStr);
+
         // Data values stored for manifest files (packages.manifest is used to represent project, manifest used for packages),
         // one value per build configuration that the project/package is initialized in.
         public const string Build2ConfigDataValueTypeStr = "{38CFA85B-D849-462E-93BF-FF6D2BDE1FE6}";
