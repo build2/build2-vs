@@ -68,6 +68,7 @@
     <Compile Include="Toolchain\Build2CompileCommands.cs" />
     <Compile Include="Toolchain\Build2Configs.cs" />
     <Compile Include="Toolchain\Build2Toolchain.cs" />
+    <Compile Include="Toolchain\BuildTargets.cs" />
     <Compile Include="Toolchain\Json\Build2Json.cs" />
     <Compile Include="Utilities\OutputUtils.cs" />
     <Compile Include="Utilities\PathUtils.cs" />
