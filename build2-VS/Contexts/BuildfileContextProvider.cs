@@ -56,7 +56,7 @@ namespace B2VS.Contexts
                 var filename = System.IO.Path.GetFileName(filePath);
                 if (filename.Equals(Build2Constants.BuildfileFilename))
                 {
-                    OutputUtils.OutputWindowPaneAsync(string.Format("Contexts requested for {0}...", filePath));
+                    Build2Toolchain.DebugHandler?.Invoke(string.Format("Contexts requested for {0}...", filePath));
 
                     fileContexts.Add(new FileContext(
                         ProviderTypeGuid,
@@ -68,7 +68,7 @@ namespace B2VS.Contexts
                     // shouldn't be doing it per buildfile), or scoped ones. suspect this may relate to weird behaviour being seen.
 
                     var inflight = Interlocked.Increment(ref inflightCount);
-                    OutputUtils.OutputWindowPaneAsync(string.Format("Inflight++ -> {0}", inflight));
+                    Build2Toolchain.DebugHandler?.Invoke(string.Format("Inflight++ -> {0}", inflight));
 
                     // @todo: needs attention.
                     // we may need to explicitly check if the packages list is up to date, since we need to distinguish between 'not up to date so can't generate
@@ -80,7 +80,7 @@ namespace B2VS.Contexts
                         cancellationToken: cancellationToken);
 
                     inflight = Interlocked.Decrement(ref inflightCount);
-                    OutputUtils.OutputWindowPaneAsync(string.Format("Inflight-- -> {0}", inflight));
+                    Build2Toolchain.DebugHandler?.Invoke(string.Format("Inflight-- -> {0}", inflight));
 
                     //if (basePath == null)
                     //{
