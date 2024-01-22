@@ -6,6 +6,8 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using B2VS.Toolchain;
+using Microsoft.VisualStudio.Imaging;
+using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.VSIntegration.UI;
@@ -51,13 +53,13 @@ namespace B2VS.Workspace
         public class Build2PackagesRootNode : WorkspaceVisualNodeBase
         {
             private readonly SVsServiceProvider _provider;
-            //private ImageMoniker _moniker;
+            private ImageMoniker _moniker;
 
             public Build2PackagesRootNode(SVsServiceProvider provider, WorkspaceVisualNodeBase parent) : base(parent)
             {
                 this._provider = provider;
                 this.NodeMoniker = "BUILD2_Packages";
-                //this._moniker = moniker;
+                this._moniker = KnownMonikers.FlatList;
             }
 
             public override bool SupportsRename => false;
@@ -66,7 +68,7 @@ namespace B2VS.Workspace
             {
                 base.OnInitialized();
                 UINode.Text = "Packages";
-                //SetIcon(_moniker.Guid, _moniker.Id);
+                SetIcon(_moniker.Guid, _moniker.Id);
             }
 
             public override int Compare(WorkspaceVisualNodeBase right)
@@ -119,7 +121,7 @@ namespace B2VS.Workspace
             private readonly SVsServiceProvider _provider;
             private string _fileName;
             private string _filePath;
-            //private ImageMoniker _moniker;
+            private ImageMoniker _moniker;
 
             public string FileName => _fileName;
             public string FullPath => _filePath;
@@ -130,14 +132,14 @@ namespace B2VS.Workspace
                 this._fileName = fileName;
                 this._filePath = filePath;
                 this.NodeMoniker = fileName;
-                //this._moniker = moniker;
+                this._moniker = KnownMonikers.Package;
             }
 
             protected override void OnInitialized()
             {
                 base.OnInitialized();
                 UINode.Text = _fileName;
-                //SetIcon(_moniker.Guid, _moniker.Id);
+                SetIcon(_moniker.Guid, _moniker.Id);
             }
 
             public override int Compare(WorkspaceVisualNodeBase right)
@@ -195,26 +197,23 @@ namespace B2VS.Workspace
         {
             private readonly SVsServiceProvider _provider;
             private Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target _target;
-            //private string _filePath;
-            //private ImageMoniker _moniker;
+            private ImageMoniker _moniker;
 
             public Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target Target => _target;
-            //public string FullPath => _filePath;
 
             public Build2BuildTargetNode(SVsServiceProvider provider, WorkspaceVisualNodeBase parent, Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target target /*, string filePath*/ /*, ImageMoniker moniker*/) : base(parent)
             {
                 this._provider = provider;
                 this._target = target;
-                //this._filePath = filePath;
                 this.NodeMoniker = target.name;
-                //this._moniker = moniker;
+                this._moniker = KnownMonikers.TargetFile;
             }
 
             protected override void OnInitialized()
             {
                 base.OnInitialized();
                 UINode.Text = Target.displayName;
-                //SetIcon(_moniker.Guid, _moniker.Id);
+                SetIcon(_moniker.Guid, _moniker.Id);
             }
 
             public override int Compare(WorkspaceVisualNodeBase right)
