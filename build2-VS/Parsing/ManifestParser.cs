@@ -97,7 +97,7 @@ namespace B2VS.Parsing
             }
 
             // Parse entries.
-            var entries = new Dictionary<string, string>();
+            var entries = new List<KeyValuePair<string, string>>();
             bool hitNextManifest = false;
             while (enumerator.MoveNext())
             {
@@ -108,7 +108,7 @@ namespace B2VS.Parsing
                     hitNextManifest = true;
                     break;
                 }
-                entries.Add(entry.Key, entry.Value);
+                entries.Add(entry);
             }
 
             manifest = new Build2Manifest(version, entries);
