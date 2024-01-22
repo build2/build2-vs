@@ -31,13 +31,16 @@ namespace B2VS.Toolchain
                 throw new Exception(string.Format("'b --dump' failed: {0}", stdErr));
             }
 
-            var json = JsonSerializer.Deserialize<Json.B.DumpLoad.BuildLoadStatus>(jsonDumpStr);
-            if (json == null)
+            try
             {
-                throw new Exception("'b --dump' json output not parseable");
+                var json = JsonSerializer.Deserialize<Json.B.DumpLoad.BuildLoadStatus>(jsonDumpStr);
+                return (IEnumerable<Json.B.DumpLoad.BuildLoadStatus.Target>)json.targets;
             }
-
-            return (IEnumerable<Json.B.DumpLoad.BuildLoadStatus.Target>)json.targets;
+            catch (Exception ex)
+            {
+                OutputUtils.OutputWindowPaneAsync("'b --dump' json output not parseable");
+                throw;
+            }
         }
     }
 }
