@@ -14,7 +14,7 @@ using Microsoft.VisualStudio.Workspace.VSIntegration.UI;
 
 namespace B2VS.Workspace
 {
-    [Export(typeof(INodeExtender))]
+    [ExportNodeExtender(KnownViews.PhysicalTree)]
     internal class Build2WorkspaceNodeExtender : INodeExtender
     {
         protected SVsServiceProvider _provider;
@@ -67,8 +67,9 @@ namespace B2VS.Workspace
             protected override void OnInitialized()
             {
                 base.OnInitialized();
-                UINode.Text = "Packages";
+                UINode.Text = "packages";
                 SetIcon(_moniker.Guid, _moniker.Id);
+                SetExpandedIcon(_moniker.Guid, _moniker.Id);
             }
 
             public override int Compare(WorkspaceVisualNodeBase right)
@@ -180,7 +181,7 @@ namespace B2VS.Workspace
                 
                 foreach (var pkgPath in await Build2Workspace.EnumeratePackageLocationsAsync(_workspace, CancellationToken.None))
                 {
-                    var pkgName = Path.GetDirectoryName(pkgPath); // @todo: pkg name from manifest/index;
+                    var pkgName = Path.GetFileName(pkgPath); // @todo: pkg name from manifest/index;
                     var node = new Build2PackageNode(
                         (Extender as Build2WorkspaceNodeExtender)._provider,
                         _parentNode, 
