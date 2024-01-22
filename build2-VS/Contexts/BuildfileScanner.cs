@@ -113,26 +113,6 @@ namespace B2VS.Contexts
 
                         OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
                     }
-                    //else
-                    //{
-                    //    // @todo: for now assuming this means not in a package (at project level), rather than 'indexed data not available'.
-                    //    // Also, for the moment no attempt to build subtrees, just build the whole project. Should probably generate a list of
-                    //    // package paths to pass to bdep, including every package located below us in the folder structure.
-
-                    //    // Grab cached build configurations for project
-                    //    var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(workspaceContext.Location, workspaceContext);
-                    //    results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
-                    //        BuildConfigurationContext.ContextTypeGuid,
-                    //        BuildConfigurationContext.DataValueName,
-                    //        null,
-                    //        context: cfg.BuildConfiguration
-                    //        )));
-
-                    //    var rootDir = new DirectoryInfo(workspaceContext.Location);
-                    //    AddStartupItem(rootDir.Name);
-
-                    //    OutputUtils.OutputWindowPaneAsync(string.Format("Using project-level configs ({0}) for '{1}'", buildConfigs.Count(), relativePath));
-                    //}
 
                     OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
                     return (T)(IReadOnlyCollection<FileDataValue>)results;
