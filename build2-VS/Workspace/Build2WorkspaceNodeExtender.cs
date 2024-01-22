@@ -3,7 +3,9 @@ using System.ComponentModel.Composition;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using B2VS.Toolchain;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.VSIntegration.UI;
@@ -32,13 +34,21 @@ namespace B2VS.Workspace
             {
                 return new PackagesChildrenSource(this, parentNode);
             }
+            else if (parentNode is IFileNode)
+            {
+                var parentFileNode = parentNode as IFileNode;
+                if (parentFileNode.FileName == Build2Constants.BuildfileFilename)
+                {
+                    return new BuildfileTargetsChildrenSource(this, parentNode);
+                }
+            }
             return null;
         }
 
         public IWorkspaceCommandHandler ProvideCommandHandler(WorkspaceVisualNodeBase parentNode)
             => parentNode is Build2PackageNode ? _handler : null;
 
-        public class Build2PackagesRootNode : WorkspaceVisualNodeBase //, IFileNode
+        public class Build2PackagesRootNode : WorkspaceVisualNodeBase
         {
             private readonly SVsServiceProvider _provider;
             //private ImageMoniker _moniker;
@@ -132,7 +142,7 @@ namespace B2VS.Workspace
 
             public override int Compare(WorkspaceVisualNodeBase right)
             {
-                Build2PackageNode node = right as Build2PackageNode;
+                var node = right as Build2PackageNode;
                 if (node == null)
                     return -1;
                 return _fileName.CompareTo(node._fileName);
@@ -166,7 +176,7 @@ namespace B2VS.Workspace
             {
                 List<WorkspaceVisualNodeBase> children = new List<WorkspaceVisualNodeBase>();
                 
-                foreach (var pkgPath in await Build2Workspace.EnumeratePackageLocationsAsync(_workspace))
+                foreach (var pkgPath in await Build2Workspace.EnumeratePackageLocationsAsync(_workspace, CancellationToken.None))
                 {
                     var pkgName = Path.GetDirectoryName(pkgPath); // @todo: pkg name from manifest/index;
                     var node = new Build2PackageNode(
@@ -174,6 +184,82 @@ namespace B2VS.Workspace
                         _parentNode, 
                         pkgName, 
                         Path.Combine(pkgPath, Build2Constants.PackageManifestFilename));
+                    children.Add(node);
+                }
+
+                return children;
+            }
+        }
+
+        public class Build2BuildTargetNode : WorkspaceVisualNodeBase
+        {
+            private readonly SVsServiceProvider _provider;
+            private Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target _target;
+            //private string _filePath;
+            //private ImageMoniker _moniker;
+
+            public Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target Target => _target;
+            //public string FullPath => _filePath;
+
+            public Build2BuildTargetNode(SVsServiceProvider provider, WorkspaceVisualNodeBase parent, Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target target /*, string filePath*/ /*, ImageMoniker moniker*/) : base(parent)
+            {
+                this._provider = provider;
+                this._target = target;
+                //this._filePath = filePath;
+                this.NodeMoniker = target.name;
+                //this._moniker = moniker;
+            }
+
+            protected override void OnInitialized()
+            {
+                base.OnInitialized();
+                UINode.Text = Target.displayName;
+                //SetIcon(_moniker.Guid, _moniker.Id);
+            }
+
+            public override int Compare(WorkspaceVisualNodeBase right)
+            {
+                var node = right as Build2BuildTargetNode;
+                if (node == null)
+                    return -1;
+                return Target.name.CompareTo(node.Target.name);
+            }
+        }
+
+        class BuildfileTargetsChildrenSource : IChildrenSource
+        {
+            private INodeExtender _source;
+            private WorkspaceVisualNodeBase _parentNode;
+            private IWorkspace _workspace;
+
+            public BuildfileTargetsChildrenSource(INodeExtender extender, WorkspaceVisualNodeBase parentNode)
+            {
+                this._source = extender;
+                this._parentNode = parentNode;
+                this._workspace = parentNode.Workspace;
+            }
+
+            public INodeExtender Extender => _source;
+
+            public int Order => 1;
+
+            public bool ForceExpanded => false;
+
+            public void Dispose()
+            {
+            }
+
+            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync()
+            {
+                List<WorkspaceVisualNodeBase> children = new List<WorkspaceVisualNodeBase>();
+
+                var buildfileNode = _parentNode as IFileNode;
+                foreach (var tgt in await BuildTargets.EnumerateBuildfileTargetsAsync(buildfileNode.FullPath, CancellationToken.None))
+                {
+                    var node = new Build2BuildTargetNode(
+                        (Extender as Build2WorkspaceNodeExtender)._provider,
+                        _parentNode,
+                        tgt);
                     children.Add(node);
                 }
 
