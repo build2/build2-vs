@@ -179,7 +179,7 @@ namespace B2VS.Workspace
             {
                 List<WorkspaceVisualNodeBase> children = new List<WorkspaceVisualNodeBase>();
                 
-                foreach (var pkgPath in await Build2Workspace.EnumeratePackageLocationsAsync(_workspace, CancellationToken.None))
+                foreach (var pkgPath in await Build2Workspace.EnumeratePackageLocationsAsync(_workspace, verify: false))
                 {
                     var pkgName = Path.GetFileName(pkgPath); // @todo: pkg name from manifest/index;
                     var node = new Build2PackageNode(
