@@ -64,7 +64,16 @@ namespace B2VS.Contexts
 
                 var results = new List<FileDataValue>();
 
-                // @todo: index the actual manifest contents here.
+                using (StreamReader rdr = new StreamReader(filePath))
+                {
+                    var manifest = await Parsing.ManifestParsing.ParseSingleManifestAsync(rdr, cancellationToken);
+                    results.AddRange(manifest.Entries.Select(kv => new FileDataValue(
+                        PackageIds.PackageManifestEntryDataValueTypeGuid,
+                        kv.Key, // data value name
+                        kv.Value // value
+                        //context: ?
+                        )));
+                }
 
                 // Ask bdep for the configurations this package is initialized in, and index them.
                 var packagePath = Path.GetDirectoryName(filePath);

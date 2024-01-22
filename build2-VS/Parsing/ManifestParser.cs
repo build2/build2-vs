@@ -141,5 +141,16 @@ namespace B2VS.Parsing
             }
             return manifests;
         }
+
+        public static async Task<Build2Manifest> ParseSingleManifestAsync(StreamReader stream, CancellationToken cancellationToken)
+        {
+            var manifests = await ParseManifestListAsync(stream, cancellationToken);
+            if (manifests.Count() != 1)
+            {
+                throw new Exception("Manifest parsing failed");
+            }
+
+            return manifests.First();
+        }
     }
 }
