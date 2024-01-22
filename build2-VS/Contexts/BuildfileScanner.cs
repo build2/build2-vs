@@ -117,27 +117,7 @@ namespace B2VS.Contexts
 
                     // Target enumeration
                     {
-                        var targetPath = Path.GetDirectoryName(filePath) + '/';
-                        var jsonDumpStr = "";
-                        var stdErr = "";
-                        Action<string> outputHandler = (string line) => jsonDumpStr += line;
-                        Action<string> errorHandler = (string line) => stdErr += line;
-                        var exitCode = await Build2Toolchain.B.InvokeQueuedAsync(
-                            // @NOTE: --dump-scope=x, if x is relative it appears to be interpreted relative to cwd, not path of the given target
-                            new string[] { "--load-only", "--dump=load", string.Format("--dump-scope={0}", targetPath), "--dump-format=json-v0.1", targetPath },
-                            cancellationToken,
-                            outputHandler,
-                            errorHandler);
-                        if (exitCode != 0)
-                        {
-                            throw new Exception(string.Format("'b --dump' failed: {0}", stdErr));
-                        }
-
-                        var json = JsonSerializer.Deserialize<Toolchain.Json.B.DumpLoad.BuildLoadStatus>(jsonDumpStr);
-                        if (json == null)
-                        {
-                            throw new Exception("'b --dump' json output not parseable");
-                        }
+                        var targets = BuildTargets.EnumerateBuildfileTargetsAsync(filePath, cancellationToken);
 
                         // @pending
                     }
