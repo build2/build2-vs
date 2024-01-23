@@ -34,16 +34,19 @@ namespace B2VS
                 var buildfilePath = Path.Combine(Path.GetDirectoryName(pkgNode.FullPath), Build2Constants.BuildfileFilename);
                 // Use the active config associated with the launch target, for consistency with right-click build on the package's buildfile item.
                 var cfgCtx = new BuildConfigurationContext(configSvc.GetActiveProjectBuildConfiguration(new ProjectTargetFileContext(buildfilePath)));
-                ThreadHelper.JoinableTaskFactory.Run(async delegate
+                if (cfgCtx.BuildConfiguration != null)
                 {
-                    // Currently assuming the node path is the path to the package manifest file
-                    var result = await buildSvc.BuildAsync(
-                        buildfilePath,
-                        null, null, null,
-                        cfgCtx,
-                        BuildType.Build,
-                        true, null, cancellationToken: default);
-                });
+                    ThreadHelper.JoinableTaskFactory.Run(async delegate
+                    {
+                        // Currently assuming the node path is the path to the package manifest file
+                        var result = await buildSvc.BuildAsync(
+                            buildfilePath,
+                            null, null, null,
+                            cfgCtx,
+                            BuildType.Build,
+                            true, null, cancellationToken: default);
+                    });
+                }
             }
 
             return false;
