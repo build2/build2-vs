@@ -70,6 +70,7 @@
     <Compile Include="Toolchain\Build2Toolchain.cs" />
     <Compile Include="Toolchain\BuildTargets.cs" />
     <Compile Include="Toolchain\Json\Build2Json.cs" />
+    <Compile Include="Utilities\JsonUtils.cs" />
     <Compile Include="Utilities\OutputUtils.cs" />
     <Compile Include="Utilities\PathUtils.cs" />
     <Compile Include="VSPackage\B2VSPackage.cs" />

@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Workspace.Build;
 using BCLConfig = B2VS.Toolchain.Json.Bdep.Config.List.Configuration;
 using BSConfigStatus = B2VS.Toolchain.Json.Bdep.Status.ConfigurationPackageStatus;
 using B2VS.Exceptions;
+using B2VS.Utilities;
 
 namespace B2VS.Toolchain
 {
@@ -42,7 +43,7 @@ namespace B2VS.Toolchain
                     return new Build2BuildConfiguration(configJson.name ?? configJson.path, configJson.path);
                 };
 
-                var configsJson = JsonSerializer.Deserialize<List<BCLConfig>>(configListOutput);
+                var configsJson = JsonUtils.StrictDeserialize<List<BCLConfig>>(configListOutput);
                 return configsJson.Select(convertConfig).ToList();
             }
             catch (Exception ex)
@@ -83,7 +84,7 @@ namespace B2VS.Toolchain
                     return new Build2BuildConfiguration(configStatusJson.configuration.name ?? configStatusJson.configuration.path, configStatusJson.configuration.path);
                 };
 
-                var configStatusesJson = JsonSerializer.Deserialize<List<BSConfigStatus>>(jsonOutput);
+                var configStatusesJson = JsonUtils.StrictDeserialize<List<BSConfigStatus>>(jsonOutput);
                 // @TODO: don't think build2 actually requires the package folder name to match the package name??
                 // need to refactor to always pass in package name if possible.
                 var packageName = System.IO.Path.GetFileName(packagePath);
