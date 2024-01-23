@@ -19,43 +19,6 @@ namespace B2VS.Toolchain
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="path">Must be the exact path of a bdep project folder</param>
-        /// <param name="cancellationToken"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
-        internal static async Task<IReadOnlyCollection<Build2BuildConfiguration>> EnumerateBuildConfigsForProjectPathAsync(string path, CancellationToken cancellationToken)
-        {
-            var configListOutput = "";
-            {
-                var args = new string[] { "config", "list", "--stdout-format", "json", "-d", path };
-                Action<string> outputHandler = (string line) => configListOutput += line;
-                var exitCode = await Build2Toolchain.BDep.InvokeQueuedAsync(args, cancellationToken, stdOutHandler: outputHandler);
-                if (exitCode != 0)
-                {
-                    throw new Exception("'bdep config list' failed");
-                }
-            }
-
-            try
-            {
-                Func<BCLConfig, Build2BuildConfiguration> convertConfig = (BCLConfig configJson) =>
-                {
-                    return new Build2BuildConfiguration(configJson.name ?? configJson.path, configJson.path);
-                };
-
-                var configsJson = JsonUtils.StrictDeserialize<List<BCLConfig>>(configListOutput);
-                return configsJson.Select(convertConfig).ToList();
-            }
-            catch (Exception ex)
-            {
-                OutputUtils.OutputWindowPaneAsync("'bdep config list' json output not parseable");
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
         /// <param name="packagePath">Must be the exact path of a package folder within a bdep project</param>
         /// <param name="cancellationToken"></param>
         /// <returns></returns>
@@ -92,7 +55,8 @@ namespace B2VS.Toolchain
                 return configStatusesJson
                     // Filter to configurations in which this package exists and is configured.
                     .Where(cfgStatus => cfgStatus.packages.Any(pkgStatus => string.Compare(pkgStatus.name, packageName, StringComparison.OrdinalIgnoreCase) == 0 && pkgStatus.status == "configured"))
-                    .Select(convertConfigStatus).ToList();
+                    .Select(convertConfigStatus)
+                    .ToList();
             }
             catch (Exception ex)
             {
