@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.IO;
 using B2VS.Toolchain.Json;
+using B2VS.Utilities;
 
 namespace B2VS.Toolchain
 {
@@ -33,8 +34,8 @@ namespace B2VS.Toolchain
 
             try
             {
-                var json = JsonSerializer.Deserialize<Json.B.DumpLoad.BuildLoadStatus>(jsonDumpStr);
-                return (IEnumerable<Json.B.DumpLoad.BuildLoadStatus.Target>)json.targets;
+                var json = JsonUtils.StrictDeserialize<Json.B.DumpLoad.BuildLoadStatus>(jsonDumpStr);
+                return json.targets;
             }
             catch (Exception ex)
             {
