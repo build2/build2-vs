@@ -1,11 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.Composition;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using B2VS.Toolchain;
+using B2VS.VSPackage;
 using Microsoft.VisualStudio.Imaging;
 using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Shell;
@@ -251,15 +253,19 @@ namespace B2VS.Workspace
 
             public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync()
             {
-                List<WorkspaceVisualNodeBase> children = new List<WorkspaceVisualNodeBase>();
-
+                var dataSvc = await _workspace.GetIndexWorkspaceDataServiceAsync();
+                var wsData = dataSvc.CreateIndexWorkspaceData();
                 var buildfileNode = _parentNode as IFileNode;
-                foreach (var tgt in await BuildTargets.EnumerateBuildfileTargetsAsync(buildfileNode.FullPath, CancellationToken.None))
+                var targets = await wsData.GetFileDataValuesAsync<Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target>(buildfileNode.FullPath, PackageIds.Build2BuildTargetDataValueTypeGuid);
+                List<WorkspaceVisualNodeBase> children = new List<WorkspaceVisualNodeBase>();
+                foreach (var tgt in targets)
                 {
+                    Debug.Assert(tgt.Name == PackageIds.Build2BuildTargetDataValueName);
+
                     var node = new Build2BuildTargetNode(
                         (Extender as Build2WorkspaceNodeExtender)._provider,
                         _parentNode,
-                        tgt);
+                        tgt.Value);
                     children.Add(node);
                 }
 
