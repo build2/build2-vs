@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Text.Json;
 using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.Workspace;
@@ -81,58 +82,48 @@ namespace B2VS.Contexts
 
                     // Determine containing package
 
-                    var packagePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath, verify: true, cancellationToken: cancellationToken);
-                    if (packagePath != null)
-                    {
-                        // Grab cached build configurations for our package
-                        var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
-
-                        var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext, cancellationToken);
-                        results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
-                            BuildConfigurationContext.ContextTypeGuid,
-                            BuildConfigurationContext.DataValueName,
-                            value: null,
-                            target: null,
-                            context: cfg.BuildConfiguration
-                        )));
-
-                        // @todo: enumerate exe targets within the buildfile
-
-                        var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
-                        string tempTargetName = buildfileDir.Name;
-                        // @todo: pull pkg name from index
-                        var packageDir = new DirectoryInfo(packagePath);
-
-                        // Just restricting startup items (which can also be built from the top menu) to packages for now.
-                        if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
-                        {
-                            string pkgName = packageDir.Name;
-                            string name = $"{tempTargetName} [{pkgName}]";
-                            AddStartupItem(name);
-                        }
-
-                        OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
-                    }
-                    //else
+                    //var packagePath = await Build2Workspace.GetContainingPackagePathNoIndexAsync(workspaceContext, filePath, verify: true, cancellationToken: cancellationToken);
+                    //if (packagePath != null)
                     //{
-                    //    // @todo: for now assuming this means not in a package (at project level), rather than 'indexed data not available'.
-                    //    // Also, for the moment no attempt to build subtrees, just build the whole project. Should probably generate a list of
-                    //    // package paths to pass to bdep, including every package located below us in the folder structure.
+                    //    // Grab cached build configurations for our package
+                    //    var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
 
-                    //    // Grab cached build configurations for project
-                    //    var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(workspaceContext.Location, workspaceContext);
+                    //    var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext, cancellationToken);
                     //    results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
                     //        BuildConfigurationContext.ContextTypeGuid,
                     //        BuildConfigurationContext.DataValueName,
-                    //        null,
+                    //        value: null,
+                    //        target: null,
                     //        context: cfg.BuildConfiguration
-                    //        )));
+                    //    )));
 
-                    //    var rootDir = new DirectoryInfo(workspaceContext.Location);
-                    //    AddStartupItem(rootDir.Name);
+                    //    // @todo: enumerate exe targets within the buildfile
 
-                    //    OutputUtils.OutputWindowPaneAsync(string.Format("Using project-level configs ({0}) for '{1}'", buildConfigs.Count(), relativePath));
+                    //    var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
+                    //    string tempTargetName = buildfileDir.Name;
+                    //    // @todo: pull pkg name from index
+                    //    var packageDir = new DirectoryInfo(packagePath);
+
+                    //    // Just restricting startup items (which can also be built from the top menu) to packages for now.
+                    //    if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
+                    //    {
+                    //        string pkgName = packageDir.Name;
+                    //        string name = $"{tempTargetName} [{pkgName}]";
+                    //        AddStartupItem(name);
+                    //    }
+
+                    //    OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
                     //}
+
+                    // Enumerate contained build targets and index.
+                    {
+                        var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(filePath, cancellationToken);
+
+                        results.AddRange(targets.Select(tgt => new FileDataValue(
+                            PackageIds.Build2BuildTargetDataValueTypeGuid,
+                            PackageIds.Build2BuildTargetDataValueName,
+                            value: tgt)));
+                    }
 
                     OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
                     return (T)(IReadOnlyCollection<FileDataValue>)results;

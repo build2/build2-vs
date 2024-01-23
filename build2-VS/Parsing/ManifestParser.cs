@@ -97,7 +97,7 @@ namespace B2VS.Parsing
             }
 
             // Parse entries.
-            var entries = new Dictionary<string, string>();
+            var entries = new List<KeyValuePair<string, string>>();
             bool hitNextManifest = false;
             while (enumerator.MoveNext())
             {
@@ -108,7 +108,7 @@ namespace B2VS.Parsing
                     hitNextManifest = true;
                     break;
                 }
-                entries.Add(entry.Key, entry.Value);
+                entries.Add(entry);
             }
 
             manifest = new Build2Manifest(version, entries);
@@ -140,6 +140,17 @@ namespace B2VS.Parsing
                 }
             }
             return manifests;
+        }
+
+        public static async Task<Build2Manifest> ParseSingleManifestAsync(StreamReader stream, CancellationToken cancellationToken)
+        {
+            var manifests = await ParseManifestListAsync(stream, cancellationToken);
+            if (manifests.Count() != 1)
+            {
+                throw new Exception("Manifest parsing failed");
+            }
+
+            return manifests.First();
         }
     }
 }

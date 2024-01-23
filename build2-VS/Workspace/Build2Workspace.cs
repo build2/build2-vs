@@ -22,7 +22,7 @@ namespace B2VS.Workspace
         }
 
         // Returns workspace-relative package paths (to the package folder)
-        public static async Task<IEnumerable<string>> EnumeratePackageLocationsAsync(IWorkspace workspace, CancellationToken cancellationToken)
+        public static async Task<IEnumerable<string>> EnumeratePackageLocationsAsync(IWorkspace workspace, bool verify = true, CancellationToken cancellationToken = default)
         {
             //if (IsMultiPackageProject(workspace))
             //{
@@ -40,13 +40,12 @@ namespace B2VS.Workspace
             var indexService = workspace.GetIndexWorkspaceService();
             var filePaths = await indexService.GetFilesAsync(Build2Constants.PackageManifestFilename, cancellationToken);
             // @NOTE: Above returns anything containing the pattern, not only exact matches.
-            var manifestFolderPaths = filePaths
-                .Where(path => Path.GetFileName(path) == Build2Constants.PackageManifestFilename)
-                .Select(manifestPath => Path.GetDirectoryName(manifestPath));
+            var manifestFilePaths = filePaths.Where(path => Path.GetFileName(path) == Build2Constants.PackageManifestFilename);
+            var manifestFolderPaths = manifestFilePaths.Select(manifestPath => Path.GetDirectoryName(manifestPath));
             var validManifestFolderPaths = new List<string>();
             foreach (var path in manifestFolderPaths)
             {
-                if (await VerifyValidPackageNoIndexAsync(path, cancellationToken))
+                if (!verify || await VerifyValidPackageNoIndexAsync(path, cancellationToken))
                 {
                     validManifestFolderPaths.Add(path);
                 }
@@ -59,7 +58,7 @@ namespace B2VS.Workspace
         /// </summary>
         /// <param name="filePath"></param>
         /// <returns></returns>
-        public static async Task<string> GetContainingPackagePathAsync(IWorkspace workspaceContext, string filePath, CancellationToken cancellationToken)
+        public static async Task<string> GetContainingPackagePathAsync(IWorkspace workspaceContext, string filePath, CancellationToken cancellationToken = default)
         {
             //var dataService = workspaceContext.GetIndexWorkspaceDataService();
             //var data = dataService.CreateIndexWorkspaceData();
@@ -71,7 +70,7 @@ namespace B2VS.Workspace
                 //var packageListValues = await indexService.GetFileDataValuesAsync<Build2Manifest>(
                 //    Build2Constants.PackageListManifestFilename,
                 //    VSPackage.PackageIds.PackageListManifestEntryDataValueTypeGuid);
-                var packageLocations = await EnumeratePackageLocationsAsync(workspaceContext, cancellationToken);
+                var packageLocations = await EnumeratePackageLocationsAsync(workspaceContext, cancellationToken: cancellationToken);
                 // Since build2 does not allow nested packages, we look for the first package whose base path contains the given path.
                 //foreach (var manifestData in packageListValues)
                 foreach (var relPackageLocation in packageLocations)
@@ -93,7 +92,7 @@ namespace B2VS.Workspace
             return null;
         }
 
-        public static async Task<bool> VerifyValidPackageNoIndexAsync(string folderPath, CancellationToken cancellationToken)
+        public static async Task<bool> VerifyValidPackageNoIndexAsync(string folderPath, CancellationToken cancellationToken = default)
         {
             // Assumption is that we've found a path with a manifest, but we want to check that it's registered as a package
             // in a containing multi-package project (in packages.manifest), or it is a project itself.
@@ -104,7 +103,7 @@ namespace B2VS.Workspace
             return exitCode == 0;
         }
 
-        public static async Task<bool> IsPackageRootFolderNoIndexAsync(string folderPath, bool verify, CancellationToken cancellationToken)
+        public static async Task<bool> IsPackageRootFolderNoIndexAsync(string folderPath, bool verify, CancellationToken cancellationToken = default)
         {
             // Determine based on existence of manifest file
             // @todo: without verifying that the package also exists in packages.manifest, this is flaky,
@@ -123,7 +122,7 @@ namespace B2VS.Workspace
         /// </summary>
         /// <param name="filePath"></param>
         /// <returns></returns>
-        public static async Task<string> GetContainingPackagePathNoIndexAsync(IWorkspace workspaceContext, string filePath, bool verify, CancellationToken cancellationToken)
+        public static async Task<string> GetContainingPackagePathNoIndexAsync(IWorkspace workspaceContext, string filePath, bool verify, CancellationToken cancellationToken = default)
         {
             var rootDirName = workspaceContext.Location;
             var dir = new DirectoryInfo(Path.GetDirectoryName(filePath));

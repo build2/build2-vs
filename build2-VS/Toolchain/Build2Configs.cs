@@ -10,6 +10,7 @@ using Microsoft.VisualStudio.Workspace.Build;
 using BCLConfig = B2VS.Toolchain.Json.Bdep.Config.List.Configuration;
 using BSConfigStatus = B2VS.Toolchain.Json.Bdep.Status.ConfigurationPackageStatus;
 using B2VS.Exceptions;
+using B2VS.Utilities;
 
 namespace B2VS.Toolchain
 {
@@ -35,18 +36,21 @@ namespace B2VS.Toolchain
                 }
             }
 
-            var configsJson = JsonSerializer.Deserialize<List<BCLConfig>>(configListOutput);
-            if (configsJson == null)
+            try
             {
-                throw new Exception("'bdep config list' json output not parseable");
+                Func<BCLConfig, Build2BuildConfiguration> convertConfig = (BCLConfig configJson) =>
+                {
+                    return new Build2BuildConfiguration(configJson.name ?? configJson.path, configJson.path);
+                };
+
+                var configsJson = JsonUtils.StrictDeserialize<List<BCLConfig>>(configListOutput);
+                return configsJson.Select(convertConfig).ToList();
             }
-
-            Func<BCLConfig, Build2BuildConfiguration> convertConfig = (BCLConfig configJson) =>
+            catch (Exception ex)
             {
-                return new Build2BuildConfiguration(configJson.name ?? configJson.path, configJson.path);
-            };
-
-            return configsJson.Select(convertConfig).ToList();
+                OutputUtils.OutputWindowPaneAsync("'bdep config list' json output not parseable");
+                throw;
+            }
         }
 
         /// <summary>
@@ -73,25 +77,28 @@ namespace B2VS.Toolchain
                 }
             }
 
-            var configStatusesJson = JsonSerializer.Deserialize<List<BSConfigStatus>>(jsonOutput);
-            if (configStatusesJson == null)
+            try
             {
-                throw new Exception("'bdep status' json output not parseable");
+                Func<BSConfigStatus, Build2BuildConfiguration> convertConfigStatus = (BSConfigStatus configStatusJson) =>
+                {
+                    return new Build2BuildConfiguration(configStatusJson.configuration.name ?? configStatusJson.configuration.path, configStatusJson.configuration.path);
+                };
+
+                var configStatusesJson = JsonUtils.StrictDeserialize<List<BSConfigStatus>>(jsonOutput);
+                // @TODO: don't think build2 actually requires the package folder name to match the package name??
+                // need to refactor to always pass in package name if possible.
+                var packageName = System.IO.Path.GetFileName(packagePath);
+
+                return configStatusesJson
+                    // Filter to configurations in which this package exists and is configured.
+                    .Where(cfgStatus => cfgStatus.packages.Any(pkgStatus => string.Compare(pkgStatus.name, packageName, StringComparison.OrdinalIgnoreCase) == 0 && pkgStatus.status == "configured"))
+                    .Select(convertConfigStatus).ToList();
             }
-
-            Func<BSConfigStatus, Build2BuildConfiguration> convertConfigStatus = (BSConfigStatus configStatusJson) =>
+            catch (Exception ex)
             {
-                return new Build2BuildConfiguration(configStatusJson.configuration.name ?? configStatusJson.configuration.path, configStatusJson.configuration.path);
-            };
-
-            // @TODO: don't think build2 actually requires the package folder name to match the package name??
-            // need to refactor to always pass in package name if possible.
-            var packageName = System.IO.Path.GetFileName(packagePath);
-
-            return configStatusesJson
-                // Filter to configurations in which this package exists and is configured.
-                .Where(cfgStatus => cfgStatus.packages.Any(pkgStatus => string.Compare(pkgStatus.name, packageName, StringComparison.OrdinalIgnoreCase) == 0 && pkgStatus.status == "configured"))
-                .Select(convertConfigStatus).ToList();
+                OutputUtils.OutputWindowPaneAsync("'bdep status' json output not parseable");
+                throw;
+            }
         }
     }
 }
