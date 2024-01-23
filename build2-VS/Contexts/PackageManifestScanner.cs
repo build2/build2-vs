@@ -8,6 +8,8 @@ using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.Indexing;
 using B2VS.VSPackage;
 using B2VS.Toolchain;
+using B2VS.ProjectModel;
+using Microsoft.VisualStudio.Workspace.Build;
 
 namespace B2VS.Contexts
 {
@@ -86,6 +88,14 @@ namespace B2VS.Contexts
                     PackageIds.Build2ConfigDataValueTypeGuid,
                     PackageIds.Build2ConfigDataValueName,
                     cfg
+                    )));
+
+                results.AddRange(configs.Select(cfg => new FileDataValue(
+                    BuildConfigurationContext.ContextTypeGuid,
+                    BuildConfigurationContext.DataValueName,
+                    value: null,
+                    target: null,
+                    context: cfg.BuildConfiguration
                     )));
 
                 OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for package '{1}'", configs.Count(), relativePath));
