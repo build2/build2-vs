@@ -13,6 +13,7 @@ using Microsoft.VisualStudio.Imaging.Interop;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.VSIntegration.UI;
+using BuildLoadStatus = B2VS.Toolchain.Json.B.DumpLoad.BuildLoadStatus;
 
 namespace B2VS.Workspace
 {
@@ -83,7 +84,7 @@ namespace B2VS.Workspace
             }
         }
 
-        class Build2RootChildrenSource : IChildrenSource
+        class Build2RootChildrenSource : IChildrenSource2
         {
             private INodeExtender _source;
             private WorkspaceVisualNodeBase _parentNode;
@@ -106,7 +107,7 @@ namespace B2VS.Workspace
             {
             }
 
-            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync()
+            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync(CancellationToken cancellationToken)
             {
                 List<WorkspaceVisualNodeBase> children = new List<WorkspaceVisualNodeBase>();
 
@@ -116,6 +117,11 @@ namespace B2VS.Workspace
                     ));
 
                 return children;
+            }
+
+            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync()
+            {
+                return await GetCollectionAsync(CancellationToken.None);
             }
         }
 
@@ -154,7 +160,7 @@ namespace B2VS.Workspace
             }
         }
 
-        class PackagesChildrenSource : IChildrenSource
+        class PackagesChildrenSource : IChildrenSource2
         {
             private INodeExtender _source;
             private WorkspaceVisualNodeBase _parentNode;
@@ -177,11 +183,11 @@ namespace B2VS.Workspace
             {
             }
 
-            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync()
+            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync(CancellationToken cancellationToken)
             {
                 List<WorkspaceVisualNodeBase> children = new List<WorkspaceVisualNodeBase>();
                 
-                foreach (var pkgPath in await Build2Workspace.EnumeratePackageLocationsAsync(_workspace, verify: false))
+                foreach (var pkgPath in await Build2Workspace.EnumeratePackageLocationsAsync(_workspace, verify: false, cancellationToken: cancellationToken))
                 {
                     var pkgName = Path.GetFileName(pkgPath); // @todo: pkg name from manifest/index;
                     var node = new Build2PackageNode(
@@ -193,6 +199,11 @@ namespace B2VS.Workspace
                 }
 
                 return children;
+            }
+
+            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync()
+            {
+                return await GetCollectionAsync(CancellationToken.None);
             }
         }
 
@@ -228,7 +239,7 @@ namespace B2VS.Workspace
             }
         }
 
-        class BuildfileTargetsChildrenSource : IChildrenSource
+        class BuildfileTargetsChildrenSource : IChildrenSource2
         {
             private INodeExtender _source;
             private WorkspaceVisualNodeBase _parentNode;
@@ -251,12 +262,15 @@ namespace B2VS.Workspace
             {
             }
 
-            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync()
+            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync(CancellationToken cancellationToken)
             {
                 var dataSvc = await _workspace.GetIndexWorkspaceDataServiceAsync();
                 var wsData = dataSvc.CreateIndexWorkspaceData();
                 var buildfileNode = _parentNode as IFileNode;
-                var targets = await wsData.GetFileDataValuesAsync<Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target>(buildfileNode.FullPath, PackageIds.Build2BuildTargetDataValueTypeGuid);
+                var targets = await wsData.GetFileDataValuesAsync<BuildLoadStatus.Target>(
+                    buildfileNode.FullPath,
+                    PackageIds.Build2BuildTargetDataValueTypeGuid,
+                    cancellationToken: cancellationToken);
                 List<WorkspaceVisualNodeBase> children = new List<WorkspaceVisualNodeBase>();
                 foreach (var tgt in targets)
                 {
@@ -270,6 +284,11 @@ namespace B2VS.Workspace
                 }
 
                 return children;
+            }
+
+            public async Task<IReadOnlyCollection<WorkspaceVisualNodeBase>> GetCollectionAsync()
+            {
+                return await GetCollectionAsync(CancellationToken.None);
             }
         }
     }
