@@ -58,7 +58,7 @@ namespace B2VS.Contexts
                 }
 
                 var relativePath = workspaceContext.MakeRelative(filePath);
-                OutputUtils.OutputWindowPaneAsync(string.Format("Package manifest scanner invoked for: {0}", relativePath));
+                Build2Toolchain.DebugHandler?.Invoke(string.Format("Package manifest scanner invoked for: {0}", relativePath));
 
                 // @todo: verify here that filePath is a valid package manifest, and that the package is valid within the bdep project.
 
@@ -71,13 +71,17 @@ namespace B2VS.Contexts
                         PackageIds.PackageManifestEntryDataValueTypeGuid,
                         kv.Key, // data value name
                         kv.Value // value
-                        //context: ?
                         )));
                 }
 
                 // Ask bdep for the configurations this package is initialized in, and index them.
+                // @TODO: Need to somehow retrigger this scanner in response to configuration changes (it really doesn't make much sense to me that
+                // the build config stuff is implemented through data values, since what configurations are relevant for the file is not defined 
+                // purely by the contents of the file, and this would seem to be the case for any build system).
                 var packagePath = Path.GetDirectoryName(filePath);
                 var configs = await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(packagePath, cancellationToken);
+                // @NOTE: Choosing to index here regardless of settings filter, since this scanner is really just meant to index the contents of
+                // this particular file. 
                 results.AddRange(configs.Select(cfg => new FileDataValue(
                     PackageIds.Build2ConfigDataValueTypeGuid,
                     PackageIds.Build2ConfigDataValueName,
@@ -86,7 +90,7 @@ namespace B2VS.Contexts
 
                 OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for package '{1}'", configs.Count(), relativePath));
 
-                OutputUtils.OutputWindowPaneAsync(string.Format("Package manifest scanner completed for: {0}", relativePath));
+                Build2Toolchain.DebugHandler?.Invoke(string.Format("Package manifest scanner completed for: {0}", relativePath));
 
                 return (T)(IReadOnlyCollection<FileDataValue>)results;
             }
