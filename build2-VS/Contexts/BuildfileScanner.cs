@@ -115,11 +115,14 @@ namespace B2VS.Contexts
                     //    OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
                     //}
 
-                    // Target enumeration
+                    // Enumerate contained build targets and index.
                     {
-                        var targets = BuildTargets.EnumerateBuildfileTargetsAsync(filePath, cancellationToken);
+                        var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(filePath, cancellationToken);
 
-                        // @pending
+                        results.AddRange(targets.Select(tgt => new FileDataValue(
+                            PackageIds.Build2BuildTargetDataValueTypeGuid,
+                            PackageIds.Build2BuildTargetDataValueName,
+                            value: tgt)));
                     }
 
                     OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));

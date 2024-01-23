@@ -8,14 +8,18 @@ namespace B2VS.VSPackage
 {
     internal static class PackageIds
     {
-        public static readonly Guid BuildCommandGroupGuid = new Guid("16537f6e-cb14-44da-b087-d1387ce3bf57");
+        public static readonly Guid BuildCommandGroupGuid = new Guid("{16537f6e-cb14-44da-b087-d1387ce3bf57}");
 
         // Guids from VSCT file.
         public static readonly Guid Build2GeneralCmdSet = new Guid("{AE05FE3E-FF47-42B2-B5B2-6BE612927573}");
 
         // Guids to associate file context action factories.
-        public const string BuildfileContextType = "F08A8F02-FF58-4DAD-B904-9257337B2BE2";
+        public const string BuildfileContextType = "{F08A8F02-FF58-4DAD-B904-9257337B2BE2}";
         public static readonly Guid BuildfileContextTypeGuid = new Guid(BuildfileContextType);
+
+        public const string Build2BuildTargetDataValueTypeStr = "{17598438-ED90-46E1-816E-A21EC33DBEE5}";
+        public static readonly Guid Build2BuildTargetDataValueTypeGuid = new Guid(Build2BuildTargetDataValueTypeStr);
+        public const string Build2BuildTargetDataValueName = nameof(Build2BuildTargetDataValueName);
 
         // Data values stored for packages.manifest, one value per package entry.
         public const string PackageListManifestEntryDataValueTypeStr = "{0C103BF1-0B17-4A9D-889F-4751D1E8B976}";
