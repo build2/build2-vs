@@ -11,6 +11,7 @@ using B2VS.VSPackage;
 using System.IO.Packaging;
 using System.Threading;
 using B2VS.Workspace;
+using Microsoft.VisualStudio.Workspace.Settings;
 
 namespace B2VS.ProjectModel
 {
@@ -35,9 +36,13 @@ namespace B2VS.ProjectModel
 
         private static IEnumerable<Build2BuildConfiguration> FilterBuildConfigurationsBySettings(IEnumerable<Build2BuildConfiguration> configs, IWorkspace workspace)
         {
+            var settings = Build2Settings.get(workspace);
             // @todo: need to better differentiate name vs path. think unnamed configs will use full path for BuildConfiguration,
             // but intent of this setting was to match config names only...
-            if (Build2Settings.get(workspace).GetProperty("ignoreBuildConfigPatterns", out string[] ignoreConfigPatterns)
+            bool disableIgnoreConfigPatterns = false;
+            settings.GetProperty("disableIgnoreBuildConfigPatterns", out disableIgnoreConfigPatterns);
+            if (!disableIgnoreConfigPatterns
+                && settings.GetProperty("ignoreBuildConfigPatterns", out string[] ignoreConfigPatterns)
                 == Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsResult.Success)
             {
                 return configs.Where(cfg => !ignoreConfigPatterns.Any(pattern => Regex.IsMatch(cfg.BuildConfiguration, pattern)));
