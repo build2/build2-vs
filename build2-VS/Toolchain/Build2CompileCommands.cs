@@ -263,7 +263,7 @@ namespace B2VS.Toolchain
                 return true;
             };
 
-            var unfilteredPackageLocations = await Workspace.Build2Workspace.EnumeratePackageLocationsAsync(workspace, cancellationToken);
+            var unfilteredPackageLocations = await Workspace.Build2Workspace.EnumeratePackageLocationsAsync(workspace, cancellationToken: cancellationToken);
             var packageLocations = unfilteredPackageLocations.Where(packageFilter);
 
             // For each package, retrieve name and list of build configs it's in.

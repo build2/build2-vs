@@ -12,6 +12,7 @@ using B2VS.Workspace;
 using B2VS.ProjectModel;
 using B2VS.Toolchain;
 using Microsoft.VisualStudio.Workspace.Debug;
+using System.IO;
 
 namespace B2VS.Contexts
 {
@@ -53,7 +54,7 @@ namespace B2VS.Contexts
             {
                 var fileContexts = new List<FileContext>();
 
-                var filename = System.IO.Path.GetFileName(filePath);
+                var filename = Path.GetFileName(filePath);
                 if (filename.Equals(Build2Constants.BuildfileFilename))
                 {
                     Build2Toolchain.DebugHandler?.Invoke(string.Format("Contexts requested for {0}...", filePath));
@@ -85,23 +86,23 @@ namespace B2VS.Contexts
                         // @todo: Also no idea why project root buildfile fails to yield a 'Build' menu option in the case that the project is opened
                         // and indexed for the first time (subsequent openings of the project folder work as expected, as do other buildfiles even on
                         // first opening). Scanner invocation ordering and generated configs all look correct.
-                        fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
-                            ProviderTypeGuid,
-                            BuildContextTypes.BuildContextTypeGuid,
-                            new ContextualBuildConfiguration(cfg, basePath),
-                            new[] { filePath })));
+                        //fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
+                        //    ProviderTypeGuid,
+                        //    BuildContextTypes.BuildContextTypeGuid,
+                        //    new ContextualBuildConfiguration(cfg, basePath),
+                        //    new[] { filePath })));
 
-                        fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
-                            ProviderTypeGuid,
-                            BuildContextTypes.RebuildContextTypeGuid,
-                            new ContextualBuildConfiguration(cfg, basePath),
-                            new[] { filePath })));
+                        //fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
+                        //    ProviderTypeGuid,
+                        //    BuildContextTypes.RebuildContextTypeGuid,
+                        //    new ContextualBuildConfiguration(cfg, basePath),
+                        //    new[] { filePath })));
 
-                        fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
-                            ProviderTypeGuid,
-                            BuildContextTypes.CleanContextTypeGuid,
-                            new ContextualBuildConfiguration(cfg, basePath),
-                            new[] { filePath })));
+                        //fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
+                        //    ProviderTypeGuid,
+                        //    BuildContextTypes.CleanContextTypeGuid,
+                        //    new ContextualBuildConfiguration(cfg, basePath),
+                        //    new[] { filePath })));
 
                         //fileContexts.Add(new FileContext(
                         //    ProviderTypeGuid,
