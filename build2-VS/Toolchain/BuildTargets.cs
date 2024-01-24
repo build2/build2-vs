@@ -13,10 +13,10 @@ namespace B2VS.Toolchain
 {
     internal static class BuildTargets
     {
-        public static async Task<IEnumerable<Json.B.DumpLoad.BuildLoadStatus.Target>> EnumerateBuildfileTargetsAsync(string buildfilePath, CancellationToken cancellationToken)
+        public static async Task<IEnumerable<Json.B.DumpLoad.BuildLoadStatus.Target>> EnumerateBuildfileTargetsAsync(string buildfileOutPath, Build2BuildConfiguration buildCfg, CancellationToken cancellationToken)
         {
             // @todo: think we can invoke on the buildfile itself, but unsure of syntax so for now using the containing directory target (should do same thing)
-            var targetPath = Path.GetDirectoryName(buildfilePath) + '/';
+            var targetPath = Path.GetDirectoryName(buildfileOutPath) + '/';
             var jsonDumpStr = "";
             var stdErr = "";
             Action<string> outputHandler = (string line) => jsonDumpStr += line;

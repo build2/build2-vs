@@ -43,7 +43,7 @@ namespace B2VS.Workspace
             foreach (var relPackageLocation in packageLocations)
             {
                 var absPackageLocation = Path.Combine(workspaceContext.Location, relPackageLocation);
-                var relative = PathUtils.GetRelativePath(absPackageLocation, filePath);
+                var relative = PathUtils.GetRelativePath(absPackageLocation + '/', filePath);
                 if (relative != filePath && !relative.StartsWith(".."))
                 {
                     return absPackageLocation;
