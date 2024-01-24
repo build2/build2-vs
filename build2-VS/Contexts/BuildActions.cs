@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -18,11 +19,16 @@ namespace B2VS.Contexts
         private const uint RebuildCommandId = 0x1010;
         private const uint CleanCommandId = 0x1020;
 
+        // @TODO: Via Build2VS.json
+        private const int Build2Verbosity = 1;
+
+        private static string VerbosityArg { get { return string.Format("--verbose={0}", Build2Verbosity); } }
+
         public static BasicContextAction CreateBuildAction(IWorkspace workspace, FileContext fileContext)
         {
             var buildCtx = fileContext.Context as ContextualBuildConfiguration;
             return CreateSingleAction(workspace, fileContext, BuildCommandId, new string[] {
-                "--verbose=2",
+                VerbosityArg,
                 "update",
                 "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
                 "-d", buildCtx.TargetPath,
@@ -35,13 +41,13 @@ namespace B2VS.Contexts
             // Rebuild command (although this can be done with a single b invocation, it seems bdep does not have an equivalent)
             var cmds = new List<string[]>();
             cmds.Add(new string[] {
-                "--verbose=2",
+                VerbosityArg,
                 "clean",
                 "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
                 "-d", buildCtx.TargetPath,
             });
             cmds.Add(new string[] {
-                "--verbose=2",
+                VerbosityArg,
                 "update",
                 "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
                 "-d", buildCtx.TargetPath,
@@ -53,7 +59,7 @@ namespace B2VS.Contexts
         {
             var buildCtx = fileContext.Context as ContextualBuildConfiguration;
             return CreateSingleAction(workspace, fileContext, CleanCommandId, new string[] {
-                "--verbose=2",
+                VerbosityArg,
                 "clean",
                 "-c", buildCtx.Configuration.ConfigDir, // apparently quoting breaks things..? String.Format("\"{0}\"", buildCtx.Configuration.ConfigDir),
                 "-d", buildCtx.TargetPath,
