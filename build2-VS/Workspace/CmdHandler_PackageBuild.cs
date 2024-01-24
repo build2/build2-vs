@@ -31,21 +31,25 @@ namespace B2VS
             if (buildSvc != null && configSvc != null)
             {
                 var pkgNode = selection[0] as Workspace.Build2WorkspaceNodeExtender.Build2PackageNode;
-                var buildfilePath = Path.Combine(Path.GetDirectoryName(pkgNode.FullPath), Build2Constants.BuildfileFilename);
+                var projectTargetFilePath = pkgNode.FullPath;
                 // Use the active config associated with the launch target, for consistency with right-click build on the package's buildfile item.
-                var cfgCtx = new BuildConfigurationContext(configSvc.GetActiveProjectBuildConfiguration(new ProjectTargetFileContext(buildfilePath)));
+                var cfgCtx = new BuildConfigurationContext(configSvc.GetActiveProjectBuildConfiguration(new ProjectTargetFileContext(projectTargetFilePath)));
                 if (cfgCtx.BuildConfiguration != null)
                 {
-                    ThreadHelper.JoinableTaskFactory.Run(async delegate
+                    // @NOTE: Seems dodgy. This Execute call comes in on main thread and if we use JoinableTaskFactory.Run() then we block the UI during the build.
+                    // So using RunAsync, but also feels wrong since we can't await it, and this also means we just have to immediately return success without waiting
+                    // for the build result (maybe this is fine though, not sure of exact semantics of base class Execute return value anyway).
+                    var result = ThreadHelper.JoinableTaskFactory.RunAsync(async delegate
                     {
                         // Currently assuming the node path is the path to the package manifest file
-                        var result = await buildSvc.BuildAsync(
-                            buildfilePath,
+                        return await buildSvc.BuildAsync(
+                            projectTargetFilePath,
                             null, null, null,
                             cfgCtx,
                             BuildType.Build,
                             true, null, cancellationToken: default);
                     });
+                    return true; // result.IsSuccess;
                 }
             }
 
