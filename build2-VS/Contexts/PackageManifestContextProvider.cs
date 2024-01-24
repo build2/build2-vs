@@ -49,7 +49,7 @@ namespace B2VS.Contexts
             {
                 var fileContexts = new List<FileContext>();
 
-                var filename = System.IO.Path.GetFileName(filePath);
+                var filename = Path.GetFileName(filePath);
                 if (filename.Equals(Build2Constants.PackageManifestFilename))
                 {
                     var basePath = Path.GetDirectoryName(filePath);
