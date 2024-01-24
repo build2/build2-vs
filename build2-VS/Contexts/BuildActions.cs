@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.Build;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -61,17 +62,16 @@ namespace B2VS.Contexts
 
         public static BasicContextAction CreateActionFromFileContext(IWorkspace workspace, FileContext fileContext)
         {
-            if (fileContext.Context is ContextualBuildConfiguration)
+            Debug.Assert(fileContext.Context is ContextualBuildConfiguration);
+
+            switch (fileContext.ContextType)
             {
-                switch (fileContext.ContextType)
-                {
-                    case var type when (type == BuildContextTypes.BuildContextTypeGuid):
-                        return CreateBuildAction(workspace, fileContext);
-                    case var type when (type == BuildContextTypes.RebuildContextTypeGuid):
-                        return CreateRebuildAction(workspace, fileContext);
-                    case var type when (type == BuildContextTypes.CleanContextTypeGuid):
-                        return CreateCleanAction(workspace, fileContext);
-                }
+                case var type when (type == BuildContextTypes.BuildContextTypeGuid):
+                    return CreateBuildAction(workspace, fileContext);
+                case var type when (type == BuildContextTypes.RebuildContextTypeGuid):
+                    return CreateRebuildAction(workspace, fileContext);
+                case var type when (type == BuildContextTypes.CleanContextTypeGuid):
+                    return CreateCleanAction(workspace, fileContext);
             }
             return null;
         }

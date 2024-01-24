@@ -61,6 +61,7 @@ namespace B2VS.Contexts
                 {
                     Build2Toolchain.DebugHandler?.Invoke(string.Format("Generating actions requested for {0}...", filePath));
 
+                    if (fileContext.Context is ContextualBuildConfiguration)
                     {
                         var buildAction = BuildActions.CreateActionFromFileContext(workspaceContext, fileContext);
                         if (buildAction != null)
