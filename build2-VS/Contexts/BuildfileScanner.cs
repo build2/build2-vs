@@ -117,12 +117,20 @@ namespace B2VS.Contexts
 
                     // Enumerate contained build targets and index.
                     {
-                        var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(filePath, cancellationToken);
+                        // @note: disabled for now due to issue that needs further investigation.
+                        // kperf is triggering a weird error when running b from within the bdep project folder (rather than in the config, which works).
+                        // seems to relate to kperf not being initialized in the forwarded configuration, but it triggers even if run b from /core.
+                        // need to try to repro in a simpler project.
+                        // also note that for this target enumeration case, we actually don't want to use the forwarding anyway, we want to run in a config
+                        // probably (though relates to question of whether we can do this without a config), but unsure how to get the equivalent out dir path
+                        // for an arbitrary buildfile.
 
-                        results.AddRange(targets.Select(tgt => new FileDataValue(
-                            PackageIds.Build2BuildTargetDataValueTypeGuid,
-                            PackageIds.Build2BuildTargetDataValueName,
-                            value: tgt)));
+                        //var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(filePath, cancellationToken);
+
+                        //results.AddRange(targets.Select(tgt => new FileDataValue(
+                        //    PackageIds.Build2BuildTargetDataValueTypeGuid,
+                        //    PackageIds.Build2BuildTargetDataValueName,
+                        //    value: tgt)));
                     }
 
                     OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
