@@ -46,6 +46,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Build2Constants.cs" />
+    <Compile Include="Contexts\BasicContextAction.cs" />
+    <Compile Include="Contexts\BuildActions.cs" />
+    <Compile Include="Contexts\PackageManifestContextActionProvider.cs" />
     <Compile Include="Contexts\CppSettingsProvider.cs" />
     <Compile Include="Contexts\PackageManifestContextProvider.cs" />
     <Compile Include="Contexts\PackageManifestScanner.cs" />
