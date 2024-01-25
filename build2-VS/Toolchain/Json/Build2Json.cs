@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace B2VS.Toolchain.Json
 {
@@ -90,6 +91,14 @@ namespace B2VS.Toolchain.Json
                 public string displayName;
                 [JsonInclude]
                 public string type;
+
+                public string OutFileTitle
+                {
+                    get {
+                        var match = Regex.Match(displayName, ".+{(.+)}");
+                        return match.Success ? match.Groups[1].Value : "";
+                    }
+                }
             }
 
             [JsonInclude, JsonPropertyName("out_path")]

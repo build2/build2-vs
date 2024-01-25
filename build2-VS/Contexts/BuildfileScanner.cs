@@ -65,19 +65,24 @@ namespace B2VS.Contexts
 
                     var results = new List<FileDataValue>();
 
-                    void AddStartupItem(string name, string binTarget)
+                    void AddStartupItem(string name, string binTarget) //, Build2BuildConfiguration cfg = null)
                     {
                         IPropertySettings launchSettings = new PropertySettings
                         {
+                            [LaunchConfigurationConstants.TypeKey] = "default",
                             [LaunchConfigurationConstants.NameKey] = name,
-                            //[LaunchConfigurationConstants.DebugTypeKey] = LaunchConfigurationConstants.NativeOptionKey,
+                            [LaunchConfigurationConstants.DebugTypeKey] = LaunchConfigurationConstants.NativeOptionKey,
                             [LaunchConfigurationConstants.ProgramKey] = binTarget,
+                            [LaunchConfigurationConstants.ProjectKey] = workspaceContext.MakeRelative(binTarget),
+                            [LaunchConfigurationConstants.ProjectTargetKey] = name,
                         };
                         results.Add(new FileDataValue(
                             DebugLaunchActionContext.ContextTypeGuid,
                             DebugLaunchActionContext.IsDefaultStartupProjectEntry,
                             value: launchSettings,
-                            target: null/*outFile*/));
+                            target: binTarget
+                            //, context: cfg.BuildConfiguration
+                            ));
                     }
 
                     // Determine containing package
@@ -125,9 +130,23 @@ namespace B2VS.Contexts
                             {
                                 if (target.type == "exe")
                                 {
-                                    AddStartupItem(target.displayName, "todo");
+                                    AddStartupItem(
+                                        target.OutFileTitle,
+                                        Path.Combine(Path.GetDirectoryName(outPath), target.OutFileTitle) + ".exe"
+                                        //, cfg
+                                        );
                                 }
                             }
+
+                            //
+
+                            //results.Add(new FileDataValue(
+                            //    BuildConfigurationContext.ContextTypeGuid,
+                            //    BuildConfigurationContext.DataValueName,
+                            //    value: null,
+                            //    target: null,
+                            //    context: cfg.BuildConfiguration
+                            //    ));
                         }
                     }
 
