@@ -14,6 +14,8 @@ using B2VS.ProjectModel;
 using Microsoft.VisualStudio.Workspace.Debug;
 using System.Windows.Documents;
 using B2VS.VSPackage;
+using static B2VS.Toolchain.Json.B.DumpLoad.BuildLoadStatus;
+using System.IO.Packaging;
 
 namespace B2VS.Contexts
 {
@@ -26,7 +28,7 @@ namespace B2VS.Contexts
         ProviderType,
         "build2 buildfile",
         new String[] { Build2Constants.BuildfileFilename },
-        new Type[] { typeof(IReadOnlyCollection<FileDataValue>) } //, typeof(IReadOnlyCollection<FileReferenceInfo>) }
+        new Type[] { typeof(IReadOnlyCollection<FileDataValue>), typeof(IReadOnlyCollection<FileReferenceInfo>) }
         )]
     class BuildfileScannerFactory : IWorkspaceProviderFactory<IFileScanner>
     {
@@ -57,146 +59,199 @@ namespace B2VS.Contexts
 
                 if (typeof(T) == FileScannerTypeConstants.FileDataValuesType)
                 {
-                    var indexService = workspaceContext.GetIndexWorkspaceService();
+                    OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner [{0}] completed for: {1}", typeof(T), relativePath));
+                    return (T)(IReadOnlyCollection<FileDataValue>)await GetFileDataValuesAsync(filePath, cancellationToken);
+                }
+                else if (typeof(T) == FileScannerTypeConstants.FileReferenceInfoType)
+                {
+                    OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner [{0}] completed for: {1}", typeof(T), relativePath));
+                    return (T)(IReadOnlyCollection<FileReferenceInfo>)await GetFileReferenceInfosAsync(filePath, cancellationToken);
+                }
+                else
+                {
+                    throw new NotImplementedException();
+                }
+            }
 
-                    //using (StreamReader rdr = new StreamReader(filePath))
+            private async Task<List<FileDataValue>> GetFileDataValuesAsync(string filePath, CancellationToken cancellationToken)
+            {
+                var indexService = workspaceContext.GetIndexWorkspaceService();
+
+                //using (StreamReader rdr = new StreamReader(filePath))
+                //{
+                //}
+
+                var results = new List<FileDataValue>();
+
+                void AddStartupItem(string name, string binTarget = null, /*string outRelativePath = null,*/ Build2BuildConfiguration cfg = null)
+                {
+                    IPropertySettings launchSettings = new PropertySettings
+                    {
+                        [LaunchConfigurationConstants.TypeKey] = "default",
+                        [LaunchConfigurationConstants.NameKey] = name,
+                        [LaunchConfigurationConstants.DebugTypeKey] = LaunchConfigurationConstants.NativeOptionKey,
+                        //[LaunchConfigurationConstants.ProgramKey] = binTarget,
+                        //[LaunchConfigurationConstants.ProjectKey] = workspaceContext.MakeRelative(binTarget),
+                        //[LaunchConfigurationConstants.ProjectTargetKey] = name,
+                    };
+                    results.Add(new FileDataValue(
+                        DebugLaunchActionContext.ContextTypeGuid,
+                        DebugLaunchActionContext.IsDefaultStartupProjectEntry,
+                        value: launchSettings
+                        , target: binTarget
+                        , context: cfg.BuildConfiguration
+                        ));
+                }
+
+                // Determine containing package
+
+                var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath, cancellationToken: cancellationToken);
+                if (packagePath != null)
+                {
+                    //// Grab cached build configurations for our package
+                    //var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
+
+                    //var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext, cancellationToken);
+                    //results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
+                    //    BuildConfigurationContext.ContextTypeGuid,
+                    //    BuildConfigurationContext.DataValueName,
+                    //    value: null,
+                    //    target: null,
+                    //    context: cfg.BuildConfiguration
+                    //)));
+
+                    //// @todo: enumerate exe targets within the buildfile
+
+                    //var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
+                    //string tempTargetName = buildfileDir.Name;
+                    //// @todo: pull pkg name from index
+                    //var packageDir = new DirectoryInfo(packagePath);
+
+                    //// Just restricting startup items (which can also be built from the top menu) to packages for now.
+                    //if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
                     //{
+                    //    string pkgName = packageDir.Name;
+                    //    string name = $"{tempTargetName} [{pkgName}]";
+                    //    AddStartupItem(name);
                     //}
 
-                    var results = new List<FileDataValue>();
+                    //OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
 
-                    void AddStartupItem(string name, string binTarget) //, Build2BuildConfiguration cfg = null)
+                    var packageRelativeBuildfilePath = PathUtils.GetRelativePath(packagePath + '/', filePath);
+                    var pkgName = new DirectoryInfo(packagePath).Name; // @todo: from indexed manifest, however, still issue with using index from scanner??
+                    var configs = await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(packagePath, cancellationToken);
+                    //var condensedTargets = new List<Target>();
+                    foreach (var cfg in configs)
                     {
-                        IPropertySettings launchSettings = new PropertySettings
+                        var outPath = Path.Combine(cfg.ConfigDir, pkgName, packageRelativeBuildfilePath);
+                        var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(outPath, cfg, cancellationToken);
+                        foreach (var target in targets)
                         {
-                            [LaunchConfigurationConstants.TypeKey] = "default",
-                            [LaunchConfigurationConstants.NameKey] = name,
-                            [LaunchConfigurationConstants.DebugTypeKey] = LaunchConfigurationConstants.NativeOptionKey,
-                            [LaunchConfigurationConstants.ProgramKey] = binTarget,
-                            [LaunchConfigurationConstants.ProjectKey] = workspaceContext.MakeRelative(binTarget),
-                            [LaunchConfigurationConstants.ProjectTargetKey] = name,
-                        };
-                        results.Add(new FileDataValue(
-                            DebugLaunchActionContext.ContextTypeGuid,
-                            DebugLaunchActionContext.IsDefaultStartupProjectEntry,
-                            value: launchSettings,
-                            target: binTarget
-                            //, context: cfg.BuildConfiguration
-                            ));
-                    }
+                            if (target.type == "exe")
+                            {
+                                var binTargetPath = Path.Combine(Path.GetDirectoryName(outPath), target.OutFileTitle) + ".exe";
 
-                    // Determine containing package
+                                AddStartupItem(
+                                    string.Format("{0} [{1}]", target.OutFileTitle, cfg.BuildConfiguration),
+                                    binTarget: binTargetPath,
+                                    cfg: cfg
+                                    );
 
-                    var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath, cancellationToken: cancellationToken);
-                    if (packagePath != null)
-                    {
-                        //// Grab cached build configurations for our package
-                        //var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
+                                results.Add(new FileDataValue(
+                                    BuildConfigurationContext.ContextTypeGuid,
+                                    BuildConfigurationContext.DataValueName,
+                                    value: null,
+                                    target: binTargetPath,
+                                    context: cfg.BuildConfiguration
+                                    ));
 
-                        //var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext, cancellationToken);
-                        //results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
+                                //if (condensedTargets.Find(t => t.name == target.name) == null)
+                                //{
+                                //    condensedTargets.Add(target);
+                                //}
+                            }
+                        }
+
+                        //
+
+                        //results.Add(new FileDataValue(
                         //    BuildConfigurationContext.ContextTypeGuid,
                         //    BuildConfigurationContext.DataValueName,
                         //    value: null,
                         //    target: null,
                         //    context: cfg.BuildConfiguration
-                        //)));
-
-                        //// @todo: enumerate exe targets within the buildfile
-
-                        //var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
-                        //string tempTargetName = buildfileDir.Name;
-                        //// @todo: pull pkg name from index
-                        //var packageDir = new DirectoryInfo(packagePath);
-
-                        //// Just restricting startup items (which can also be built from the top menu) to packages for now.
-                        //if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
-                        //{
-                        //    string pkgName = packageDir.Name;
-                        //    string name = $"{tempTargetName} [{pkgName}]";
-                        //    AddStartupItem(name);
-                        //}
-
-                        //OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
-
-                        var packageRelativeBuildfilePath = PathUtils.GetRelativePath(packagePath + '/', filePath);
-                        var pkgName = new DirectoryInfo(packagePath).Name; // @todo: from indexed manifest, however, still issue with using index from scanner??
-                        var configs = await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(packagePath, cancellationToken);
-                        foreach (var cfg in configs)
-                        {
-                            var outPath = Path.Combine(cfg.ConfigDir, pkgName, packageRelativeBuildfilePath);
-                            var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(outPath, cfg, cancellationToken);
-                            foreach (var target in targets)
-                            {
-                                if (target.type == "exe")
-                                {
-                                    AddStartupItem(
-                                        target.OutFileTitle,
-                                        Path.Combine(Path.GetDirectoryName(outPath), target.OutFileTitle) + ".exe"
-                                        //, cfg
-                                        );
-                                }
-                            }
-
-                            //
-
-                            //results.Add(new FileDataValue(
-                            //    BuildConfigurationContext.ContextTypeGuid,
-                            //    BuildConfigurationContext.DataValueName,
-                            //    value: null,
-                            //    target: null,
-                            //    context: cfg.BuildConfiguration
-                            //    ));
-                        }
+                        //    ));
                     }
 
-                    // Enumerate contained build targets and index.
-                    {
-                        // @note: disabled for now due to issue that needs further investigation.
-                        // kperf is triggering a weird error when running b from within the bdep project folder (rather than in the config, which works).
-                        // seems to relate to kperf not being initialized in the forwarded configuration, but it triggers even if run b from /core.
-                        // need to try to repro in a simpler project.
-                        // also note that for this target enumeration case, we actually don't want to use the forwarding anyway, we want to run in a config
-                        // probably (though relates to question of whether we can do this without a config), but unsure how to get the equivalent out dir path
-                        // for an arbitrary buildfile.
-
-                        //var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(filePath, cancellationToken);
-
-                        //results.AddRange(targets.Select(tgt => new FileDataValue(
-                        //    PackageIds.Build2BuildTargetDataValueTypeGuid,
-                        //    PackageIds.Build2BuildTargetDataValueName,
-                        //    value: tgt)));
-                    }
-
-                    OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
-                    return (T)(IReadOnlyCollection<FileDataValue>)results;
+                    //foreach (var target in condensedTargets)
+                    //{
+                    //    AddStartupItem(
+                    //        target.OutFileTitle,
+                    //        null, //Path.Combine(Path.GetDirectoryName(outPath), target.OutFileTitle) + ".exe"
+                    //        Path.Combine(pkgName, packageRelativeBuildfilePath)
+                    //        );
+                    //}
                 }
-                //else if (typeof(T) == FileScannerTypeConstants.FileReferenceInfoType)
-                //{                    
-                //    var results = new List<FileReferenceInfo>();
 
-                //    var buildConfigs = await ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(workspaceContext.Location, workspaceContext);
-
-                //    // @TODO: VS will only show the 'Set as Startup Item' context menu option if a file ref
-                //    // is given pointing at something ending in .exe (doesn't need to exist).
-                //    // Ideally we should enumerate exe targets in the buildfile and use those.
-                //    // Still don't understand why the ability to change build configs appears to be tied to debug launch and not just
-                //    // anything that's buildable.
-                //    string tgtPath = Path.Combine(Path.GetDirectoryName(filePath), "hack.exe");
-                //    results.AddRange(buildConfigs.Select(cfg => new FileReferenceInfo(
-                //        relativePath: tgtPath,
-                //        target: null, // no idea how this is used
-                //        //context: cfg.BuildConfiguration, - appears unneeded, though rust project passes something similar
-                //        referenceType: (int)FileReferenceInfoType.Output
-                //        )));
-
-                //    OutputUtils.OutputWindowPaneAsync(string.Format("Buildfile scanner completed for: {0}", relativePath));
-                //    return (T)(IReadOnlyCollection<FileReferenceInfo>)results;
-                //}
-                else
+                // Enumerate contained build targets and index.
                 {
-                    throw new NotImplementedException();
+                    // @note: disabled for now due to issue that needs further investigation.
+                    // kperf is triggering a weird error when running b from within the bdep project folder (rather than in the config, which works).
+                    // seems to relate to kperf not being initialized in the forwarded configuration, but it triggers even if run b from /core.
+                    // need to try to repro in a simpler project.
+                    // also note that for this target enumeration case, we actually don't want to use the forwarding anyway, we want to run in a config
+                    // probably (though relates to question of whether we can do this without a config), but unsure how to get the equivalent out dir path
+                    // for an arbitrary buildfile.
+
+                    //var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(filePath, cancellationToken);
+
+                    //results.AddRange(targets.Select(tgt => new FileDataValue(
+                    //    PackageIds.Build2BuildTargetDataValueTypeGuid,
+                    //    PackageIds.Build2BuildTargetDataValueName,
+                    //    value: tgt)));
                 }
+
+                return results;
+            }
+
+            private async Task<List<FileReferenceInfo>> GetFileReferenceInfosAsync(string filePath, CancellationToken cancellationToken)
+            {
+                var results = new List<FileReferenceInfo>();
+
+                // Old comment:
+
+                // VS will only show the 'Set as Startup Item' context menu option if a file ref
+                // is given pointing at something ending in .exe (doesn't need to exist).
+                // Ideally we should enumerate exe targets in the buildfile and use those.
+                // Still don't understand why the ability to change build configs appears to be tied to debug launch and not just
+                // anything that's buildable.
+
+                var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath, cancellationToken: cancellationToken);
+                if (packagePath != null)
+                {
+                    var packageRelativeBuildfilePath = PathUtils.GetRelativePath(packagePath + '/', filePath);
+                    var pkgName = new DirectoryInfo(packagePath).Name; // @todo: from indexed manifest, however, still issue with using index from scanner??
+                    var configs = await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(packagePath, cancellationToken);
+                    foreach (var cfg in configs)
+                    {
+                        var outPath = Path.Combine(cfg.ConfigDir, pkgName, packageRelativeBuildfilePath);
+                        var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(outPath, cfg, cancellationToken);
+
+                        //Path.GetRelativePath()
+
+                        results.AddRange(targets
+                            .Where(tgt => tgt.type == "exe")
+                            .Select(tgt => new FileReferenceInfo(
+                                // @todo: possibly meant to be rel to our own file path (the buildfile)?
+                                relativePath: workspaceContext.MakeRelative(Path.Combine(Path.GetDirectoryName(outPath), tgt.OutFileTitle) + ".exe"),
+                                target: Path.Combine(Path.GetDirectoryName(outPath), tgt.OutFileTitle) + ".exe", // no idea how this is used
+                                //context: cfg.BuildConfiguration, - appears unneeded, though rust project passes something similar
+                                referenceType: (int)FileReferenceInfoType.Output
+                            )));
+                    }
+                }
+
+                return results;
             }
         }
     }
