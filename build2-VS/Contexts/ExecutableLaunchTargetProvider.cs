@@ -10,6 +10,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using B2VS.Toolchain;
+using B2VS.Workspace;
+using System.Threading;
+using B2VS.ProjectModel;
+using System.Linq;
+using B2VS.VSPackage;
+using System.Diagnostics;
 
 namespace B2VS.Contexts
 {
@@ -37,7 +43,34 @@ namespace B2VS.Contexts
         {
             try
             {
-                var binPath = debugLaunchActionContext.ProjectFileContext.Target;
+                var fileContext = debugLaunchActionContext.ProjectFileContext;
+                var absBuildfilePath = workspaceContext.MakeRooted(fileContext.FilePath);
+                var configService = await workspaceContext.GetProjectConfigurationServiceAsync();
+                var buildConfigId = configService.GetActiveProjectBuildConfiguration(fileContext);
+
+                var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, absBuildfilePath);
+                var configurations = await ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(packagePath, workspaceContext);
+                var config = configurations.Where(cfg => cfg.BuildConfiguration == buildConfigId).FirstOrDefault();
+                if (config == null)
+                {
+                    Build2Toolchain.DebugHandler?.Invoke(string.Format("Error: unexpected failure to match build configuration from debug launch. Aborting."));
+                    return;
+                }
+
+                var index = await workspaceContext.GetIndexWorkspaceServiceAsync();
+                var targetDataValues = await index.GetFileDataValuesAsync<Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target>(
+                    fileContext.FilePath,
+                    PackageIds.Build2BuildTargetDataValueTypeGuid,
+                    target: fileContext.Target);
+                var targetDataValue = targetDataValues.First(dv => dv.Name == PackageIds.Build2BuildTargetDataValueName);
+                Debug.Assert(targetDataValue.Target == fileContext.Target);
+                // @todo: recreating this path here is not ideal. should probably either store the config relative target outfile path on the target structure in the 
+                // data value, or create a data value per target-config pair with the complete path.
+                var pkgName = new DirectoryInfo(packagePath).Name;
+                var packageRelativeBuildfilePath = PathUtils.GetRelativePath(packagePath + '/', absBuildfilePath);
+                var binPath = Path.Combine(config.ConfigDir, pkgName, Path.GetDirectoryName(packageRelativeBuildfilePath), targetDataValue.Value.OutFileTitle) + ".exe";
+
+                //var binPath = debugLaunchActionContext.ProjectFileContext.Target;
 
                 //var mds = workspaceContext.GetService<IMetadataService>();
                 //var package = await mds.GetContainingPackageAsync((PathEx)lcw[LaunchConfigurationConstants.ProgramKey], default);
@@ -64,6 +97,7 @@ namespace B2VS.Contexts
                 //}
 
                 //var args = await GetSettingsAsync(SettingsInfo.TypeCommandLineArguments, workspaceContext.GetService<ISettingsService>(), lcw);
+                var args = "foo";
                 //var env = await GetSettingsAsync(SettingsInfo.TypeDebuggerEnvironment, workspaceContext.GetService<ISettingsService>(), lcw);
                 //var workingDirectory = await GetSettingsAsync(SettingsInfo.TypeDebuggerWorkingDirectory, workspaceContext.GetService<ISettingsService>(), lcw);
                 //var noDebugFlag = lcw.ContainsKey(LaunchConfigurationConstants.NoDebugKey) ? __VSDBGLAUNCHFLAGS.DBGLAUNCH_NoDebug : 0;
@@ -73,7 +107,7 @@ namespace B2VS.Contexts
                     dlo = DEBUG_LAUNCH_OPERATION.DLO_CreateProcess,
                     bstrExe = binPath,
                     //bstrCurDir = workingDirectory.IsNullOrEmpty() ? Path.GetDirectoryName(processName) : workingDirectory,
-                    //bstrArg = args,
+                    bstrArg = args,
                     //bstrEnv = env.OverrideProcessEnvironment()
                     //    .PrependToPathInEnviroment(
                     //        package.GetDepsPath(profile),

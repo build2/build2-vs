@@ -48,6 +48,7 @@
     <Compile Include="Build2Constants.cs" />
     <Compile Include="Contexts\BasicContextAction.cs" />
     <Compile Include="Contexts\BuildActions.cs" />
+    <Compile Include="Contexts\BuildUpToDateProvider.cs" />
     <Compile Include="Contexts\ExecutableLaunchTargetProvider.cs" />
     <Compile Include="Contexts\PackageManifestContextActionProvider.cs" />
     <Compile Include="Contexts\CppSettingsProvider.cs" />

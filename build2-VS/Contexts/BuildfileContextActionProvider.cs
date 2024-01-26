@@ -31,6 +31,16 @@ namespace B2VS.Contexts
         // Unique Guid for this provider.
         private const string ProviderType = "{053266F0-F0C0-40D9-9FFC-94E940AABD61}";
 
+        static BuildfileActionProviderFactory()
+        {
+            Build2Toolchain.DebugHandler?.Invoke("Act Static Ctr");
+        }
+
+        public BuildfileActionProviderFactory()
+        {
+            Build2Toolchain.DebugHandler?.Invoke("Act Instance Ctr");
+        }
+
         private static readonly Guid ProviderCommandGroup = PackageIds.Build2GeneralCmdSet;
         private static readonly IReadOnlyList<CommandID> SupportedCommands = new List<CommandID>
             {

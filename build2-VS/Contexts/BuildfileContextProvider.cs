@@ -13,6 +13,8 @@ using B2VS.ProjectModel;
 using B2VS.Toolchain;
 using Microsoft.VisualStudio.Workspace.Debug;
 using System.IO;
+using System.Windows.Forms;
+using Microsoft.VisualStudio.OLE.Interop;
 
 namespace B2VS.Contexts
 {
@@ -22,6 +24,7 @@ namespace B2VS.Contexts
     [ExportFileContextProvider(
         ProviderType,
         PackageIds.BuildfileContextType,
+        BuildContextTypes.BuildUpToDateCheckProviderContextType,
         BuildContextTypes.BuildContextType,
         BuildContextTypes.RebuildContextType,
         BuildContextTypes.CleanContextType,
@@ -80,6 +83,37 @@ namespace B2VS.Contexts
                     if (basePath != null)
                     {
                         var buildConfigs = await ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(basePath, workspaceContext, cancellationToken);
+
+                        var index = await workspaceContext.GetIndexWorkspaceServiceAsync();
+                        var targetDataValues = await index.GetFileDataValuesAsync<Toolchain.Json.B.DumpLoad.BuildLoadStatus.Target>(
+                            filePath,
+                            PackageIds.Build2BuildTargetDataValueTypeGuid);
+
+                        //fileContexts.AddRange(buildConfigs.Select(cfg => new FileContext(
+                        //    ProviderTypeGuid,
+                        //    BuildContextTypes.BuildUpToDateCheckProviderContextTypeGuid,
+                        //    new BuildUpToDateCheckProviderContext(
+                        //        inputFiles: new string[] { filePath /* ?? */ },
+                        //        outputFiles: targetDataValues.Select(x => x.Target).ToArray()
+                        //        ),
+                        //    new[] { filePath })));
+
+                        var checkProvider = new BuildUpToDateProviderFactory().CreateProvider(workspaceContext);
+
+                        foreach (var cfg in buildConfigs)
+                        {
+                            fileContexts.AddRange(targetDataValues.Select(tgt => new FileContext(
+                                ProviderTypeGuid,
+                                BuildUpToDateActionContext.ContextTypeGuid,
+                                new BuildUpToDateActionContext(
+                                    checkProvider,
+                                    filePath,
+                                    tgt.Target,
+                                    new ContextualBuildConfiguration(cfg, basePath)
+                                    ),
+                                new[] { filePath })));
+                        }
+                                                
 
                         // @todo: Unclear if should be creating a full build config here; could instead just pass through minimal info and then use that to 
                         // retrieve the full config info from somewhere centralized when invoking an action on this context.

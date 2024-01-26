@@ -26,7 +26,7 @@ namespace B2VS.ProjectModel
         /// <param name="path">Assumed to identify either a package, or the top level project.</param>
         /// <param name="workspace"></param>
         /// <returns></returns>
-        public static async Task<IEnumerable<Build2BuildConfiguration>> GetIndexedBuildConfigurationsForPathAsync(string path, IWorkspace workspace, CancellationToken cancellationToken)
+        public static async Task<IEnumerable<Build2BuildConfiguration>> GetIndexedBuildConfigurationsForPathAsync(string path, IWorkspace workspace, CancellationToken cancellationToken = default)
         {
             var entityPath = Path.Combine(path, Build2Constants.PackageManifestFilename);
             var indexService = workspace.GetIndexWorkspaceService();

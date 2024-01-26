@@ -16,6 +16,10 @@ namespace B2VS
                 .ToUpperInvariant();
         }
 
+
+        // @TODO: Note that IO.Path.GetRelativePath() exists in more recent versions (.NET Core), but to use need to switch to out of process
+        // extension implementation. Unsure if Open Folder APIs are compatible?
+
         /// <summary>
         /// Creates a relative path from one file or folder to another.
         /// </summary>

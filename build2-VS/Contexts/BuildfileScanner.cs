@@ -75,15 +75,9 @@ namespace B2VS.Contexts
 
             private async Task<List<FileDataValue>> GetFileDataValuesAsync(string filePath, CancellationToken cancellationToken)
             {
-                var indexService = workspaceContext.GetIndexWorkspaceService();
-
-                //using (StreamReader rdr = new StreamReader(filePath))
-                //{
-                //}
-
                 var results = new List<FileDataValue>();
 
-                void AddStartupItem(string name, string binTarget = null, /*string outRelativePath = null,*/ Build2BuildConfiguration cfg = null)
+                void AddStartupItem(string name, string target = null, string context = null)
                 {
                     IPropertySettings launchSettings = new PropertySettings
                     {
@@ -97,50 +91,22 @@ namespace B2VS.Contexts
                     results.Add(new FileDataValue(
                         DebugLaunchActionContext.ContextTypeGuid,
                         DebugLaunchActionContext.IsDefaultStartupProjectEntry,
-                        value: launchSettings
-                        , target: binTarget
-                        , context: cfg.BuildConfiguration
+                        value: launchSettings,
+                        target: target,
+                        context: context
                         ));
                 }
 
-                // Determine containing package
+                const bool usePerConfigTargets = true;
 
+                // Determine containing package
                 var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, filePath, cancellationToken: cancellationToken);
                 if (packagePath != null)
                 {
-                    //// Grab cached build configurations for our package
-                    //var packageManifestPath = Path.Combine(packagePath, Build2Constants.PackageManifestFilename);
-
-                    //var buildConfigs = await ProjectConfigUtils.GetBuildConfigurationsForPathOnDemandAsync(packagePath, workspaceContext, cancellationToken);
-                    //results.AddRange(buildConfigs.Select(cfg => new FileDataValue(
-                    //    BuildConfigurationContext.ContextTypeGuid,
-                    //    BuildConfigurationContext.DataValueName,
-                    //    value: null,
-                    //    target: null,
-                    //    context: cfg.BuildConfiguration
-                    //)));
-
-                    //// @todo: enumerate exe targets within the buildfile
-
-                    //var buildfileDir = new DirectoryInfo(Path.GetDirectoryName(filePath));
-                    //string tempTargetName = buildfileDir.Name;
-                    //// @todo: pull pkg name from index
-                    //var packageDir = new DirectoryInfo(packagePath);
-
-                    //// Just restricting startup items (which can also be built from the top menu) to packages for now.
-                    //if (string.Equals(PathUtils.NormalizePath(buildfileDir.FullName), PathUtils.NormalizePath(packageDir.FullName)))
-                    //{
-                    //    string pkgName = packageDir.Name;
-                    //    string name = $"{tempTargetName} [{pkgName}]";
-                    //    AddStartupItem(name);
-                    //}
-
-                    //OutputUtils.OutputWindowPaneAsync(string.Format("Found {0} configs for '{1}'", buildConfigs.Count(), relativePath));
-
-                    var packageRelativeBuildfilePath = PathUtils.GetRelativePath(packagePath + '/', filePath);
                     var pkgName = new DirectoryInfo(packagePath).Name; // @todo: from indexed manifest, however, still issue with using index from scanner??
+                    var packageRelativeBuildfilePath = PathUtils.GetRelativePath(packagePath + '/', filePath);
                     var configs = await Build2Configs.EnumerateBuildConfigsForPackagePathAsync(packagePath, cancellationToken);
-                    //var condensedTargets = new List<Target>();
+                    var condensedTargets = new List<Target>();
                     foreach (var cfg in configs)
                     {
                         var outPath = Path.Combine(cfg.ConfigDir, pkgName, packageRelativeBuildfilePath);
@@ -149,31 +115,51 @@ namespace B2VS.Contexts
                         {
                             if (target.type == "exe")
                             {
+                                var configAgnosticTargetPath = target.name;// Path.Combine(pkgName, packageRelativeBuildfilePath); // @todo: not safe assumption, buildfiles could set out path to anything per config I guess.
                                 var binTargetPath = Path.Combine(Path.GetDirectoryName(outPath), target.OutFileTitle) + ".exe";
-
-                                AddStartupItem(
-                                    string.Format("{0} [{1}]", target.OutFileTitle, cfg.BuildConfiguration),
-                                    binTarget: binTargetPath,
-                                    cfg: cfg
-                                    );
 
                                 results.Add(new FileDataValue(
                                     BuildConfigurationContext.ContextTypeGuid,
                                     BuildConfigurationContext.DataValueName,
                                     value: null,
-                                    target: binTargetPath,
+                                    target: usePerConfigTargets ? binTargetPath : configAgnosticTargetPath,
                                     context: cfg.BuildConfiguration
                                     ));
 
-                                //if (condensedTargets.Find(t => t.name == target.name) == null)
-                                //{
-                                //    condensedTargets.Add(target);
-                                //}
+                                // @NOTE: One simple approach that works is a startup item for every target-config pait, and allows us to embed the build configuration/output
+                                // path info into the launch properties. However it has the drawback that it results in an entry in the startup items dropdown
+                                // for every target-configuration pair, which quickly gets out of hand.
+                                if (usePerConfigTargets)
+                                {
+                                    AddStartupItem(
+                                        string.Format("{0} [{1}]", target.OutFileTitle, cfg.BuildConfiguration),
+                                        target: binTargetPath,
+                                        context: cfg.BuildConfiguration // ??
+                                        );
+
+                                    results.Add(new FileDataValue(
+                                        PackageIds.Build2BuildTargetDataValueTypeGuid,
+                                        PackageIds.Build2BuildTargetDataValueName,
+                                        value: target,
+                                        target: binTargetPath));
+                                }
+                                // So alternative to avoid that is to merge so that we have just a single startup item per target, but then we can only
+                                // encode configuration agnostic info. 
+                                // For whatever reason, despite try all reasonable combinations, nothing seems to result in the launch provider LaunchDebugTargetAsync
+                                // call receiving a launch context with a valid BuildConfiguration (always null), so this approach is a bit cumbersome not only due to 
+                                // this merging, but also needing additional build configuration name -> output path lookup in the launch handler.
+                                else
+                                {
+                                    if (condensedTargets.Find(t => t.name == target.name) == null)
+                                    {
+                                        condensedTargets.Add(target);
+                                    }
+                                }
                             }
                         }
 
-                        //
-
+                        // @NOTE: This is only if we want to associate the buildfile as a whole (rather than specific contained targets) with a 
+                        // build configuration. Don't think there is much value in doing so.
                         //results.Add(new FileDataValue(
                         //    BuildConfigurationContext.ContextTypeGuid,
                         //    BuildConfigurationContext.DataValueName,
@@ -183,14 +169,22 @@ namespace B2VS.Contexts
                         //    ));
                     }
 
-                    //foreach (var target in condensedTargets)
-                    //{
-                    //    AddStartupItem(
-                    //        target.OutFileTitle,
-                    //        null, //Path.Combine(Path.GetDirectoryName(outPath), target.OutFileTitle) + ".exe"
-                    //        Path.Combine(pkgName, packageRelativeBuildfilePath)
-                    //        );
-                    //}
+                    if (!usePerConfigTargets)
+                    {
+                        foreach (var target in condensedTargets)
+                        {
+                            AddStartupItem(
+                                target.OutFileTitle,
+                                target: target.name //configAgnosticTargetPath
+                                );
+
+                            results.Add(new FileDataValue(
+                                PackageIds.Build2BuildTargetDataValueTypeGuid,
+                                PackageIds.Build2BuildTargetDataValueName,
+                                value: target,
+                                target: target.name));
+                        }
+                    }
                 }
 
                 // Enumerate contained build targets and index.
@@ -236,8 +230,6 @@ namespace B2VS.Contexts
                     {
                         var outPath = Path.Combine(cfg.ConfigDir, pkgName, packageRelativeBuildfilePath);
                         var targets = await BuildTargets.EnumerateBuildfileTargetsAsync(outPath, cfg, cancellationToken);
-
-                        //Path.GetRelativePath()
 
                         results.AddRange(targets
                             .Where(tgt => tgt.type == "exe")
