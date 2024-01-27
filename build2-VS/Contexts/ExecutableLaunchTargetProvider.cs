@@ -44,9 +44,15 @@ namespace B2VS.Contexts
             try
             {
                 var fileContext = debugLaunchActionContext.ProjectFileContext;
+
+                var buildSvc = await workspaceContext.GetBuildServiceAsync();
+
                 var absBuildfilePath = workspaceContext.MakeRooted(fileContext.FilePath);
                 var configService = await workspaceContext.GetProjectConfigurationServiceAsync();
                 var buildConfigId = configService.GetActiveProjectBuildConfiguration(fileContext);
+
+                var upToDateActionCtx1 = await buildSvc.GetBuildUpToDateActionContextAsync(fileContext.FilePath, fileContext.Target, null /*todo*/);
+                var upToDateActionCtx2 = await buildSvc.GetBuildUpToDateActionContextAsync(fileContext.FilePath, fileContext.Target, buildConfigId);
 
                 var packagePath = await Build2Workspace.GetContainingPackagePathAsync(workspaceContext, absBuildfilePath);
                 var configurations = await ProjectConfigUtils.GetIndexedBuildConfigurationsForPathAsync(packagePath, workspaceContext);

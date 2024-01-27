@@ -159,14 +159,15 @@ namespace B2VS.Contexts
                         }
 
                         // @NOTE: This is only if we want to associate the buildfile as a whole (rather than specific contained targets) with a 
-                        // build configuration. Don't think there is much value in doing so.
-                        //results.Add(new FileDataValue(
-                        //    BuildConfigurationContext.ContextTypeGuid,
-                        //    BuildConfigurationContext.DataValueName,
-                        //    value: null,
-                        //    target: null,
-                        //    context: cfg.BuildConfiguration
-                        //    ));
+                        // build configuration. It seems this is maybe required in order for the launch action on the buildfile itself (which we don't really want)
+                        // to automatically trigger a build first, but unable to recreate that behaviour for subtargets...
+                        results.Add(new FileDataValue(
+                            BuildConfigurationContext.ContextTypeGuid,
+                            BuildConfigurationContext.DataValueName,
+                            value: null,
+                            target: null,
+                            context: cfg.BuildConfiguration
+                            ));
                     }
 
                     if (!usePerConfigTargets)
