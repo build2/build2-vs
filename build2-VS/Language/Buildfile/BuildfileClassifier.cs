@@ -16,6 +16,7 @@ namespace B2VS.Language.Buildfile
     /// a multi-layered approach (parsing to generalized token stream, them transforming those tokens to classifiers), which may make sense for better reuse.
     /// </summary>
 
+#if false
     [Export(typeof(ITaggerProvider))]
     [ContentType("buildfile-like")]
     [TagType(typeof(ClassificationTag))]
@@ -81,4 +82,5 @@ namespace B2VS.Language.Buildfile
             }
         }
     }
+#endif
 }
