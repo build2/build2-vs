@@ -139,7 +139,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="System.Text.Json">
-      <Version>9.0.1</Version>
+      <Version>8.0.5</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
