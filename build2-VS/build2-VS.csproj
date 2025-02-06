@@ -78,11 +78,13 @@
     <Compile Include="Utilities\PathUtils.cs" />
     <Compile Include="VSPackage\B2VSPackage.cs" />
     <Compile Include="VSPackage\PackageIds.cs" />
+    <Compile Include="WorkspaceTree\Build2WorkspaceNodeExtender.cs" />
+    <Compile Include="WorkspaceTree\Nodes\BuildTargetNode.cs" />
+    <Compile Include="WorkspaceTree\Nodes\PackageNode.cs" />
     <Compile Include="Workspace\Build2Settings.cs" />
     <Compile Include="Workspace\Build2Workspace.cs" />
-    <Compile Include="Workspace\Build2WorkspaceNodeExtender.cs" />
-    <Compile Include="Workspace\CmdHandler_PackageBuild.cs" />
-    <Compile Include="Workspace\CommandHandlerBase.cs" />
+    <Compile Include="WorkspaceTree\Commands\CmdHandler_PackageBuild.cs" />
+    <Compile Include="WorkspaceTree\Commands\CommandHandlerBase.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="source.extension.vsixmanifest">

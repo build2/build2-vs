@@ -1,22 +1,19 @@
-﻿using B2VS.Toolchain;
-using B2VS.VSPackage;
-using Microsoft.VisualStudio;
+﻿using B2VS.VSPackage;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Workspace;
 using Microsoft.VisualStudio.Workspace.Build;
 using Microsoft.VisualStudio.Workspace.VSIntegration.UI;
 using System.Collections.Generic;
 using System.ComponentModel.Design;
-using System.IO;
 
-namespace B2VS
+namespace B2VS.Workspace
 {
     internal class PackageBuildCommandHandler : CommandHandlerBase
     {
         protected override CommandID Id { get; } = new CommandID(PackageIds.BuildCommandGroupGuid, 0x1000);
 
         protected override bool QueryStatus(List<WorkspaceVisualNodeBase> selection)
-            => selection.Count == 1 && selection[0] is Workspace.Build2WorkspaceNodeExtender.Build2PackageNode;
+            => selection.Count == 1 && selection[0] is Workspace.Nodes.Build2PackageNode;
 
         protected override bool Execute(List<WorkspaceVisualNodeBase> selection)
         {
@@ -30,7 +27,7 @@ namespace B2VS
             });
             if (buildSvc != null && configSvc != null)
             {
-                var pkgNode = selection[0] as Workspace.Build2WorkspaceNodeExtender.Build2PackageNode;
+                var pkgNode = selection[0] as Workspace.Nodes.Build2PackageNode;
                 var projectTargetFilePath = pkgNode.FullPath;
                 // Use the active config associated with the launch target, for consistency with right-click build on the package's buildfile item.
                 var cfgCtx = new BuildConfigurationContext(configSvc.GetActiveProjectBuildConfiguration(new ProjectTargetFileContext(projectTargetFilePath)));
