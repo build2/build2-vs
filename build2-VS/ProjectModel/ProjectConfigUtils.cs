@@ -36,7 +36,7 @@ namespace B2VS.ProjectModel
 
         private static IEnumerable<Build2BuildConfiguration> FilterBuildConfigurationsBySettings(IEnumerable<Build2BuildConfiguration> configs, IWorkspace workspace)
         {
-            var settings = Build2Settings.get(workspace);
+            var settings = Build2Settings.Get(workspace);
             // @todo: need to better differentiate name vs path. think unnamed configs will use full path for BuildConfiguration,
             // but intent of this setting was to match config names only...
             bool disableIgnoreConfigPatterns = false;

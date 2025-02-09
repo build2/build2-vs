@@ -1,6 +1,12 @@
-﻿using Microsoft.VisualStudio.LanguageServer.Client;
+﻿using B2VS.Workspace;
+using Microsoft.VisualStudio.LanguageServer.Client;
+using Microsoft.VisualStudio.OLE.Interop;
+using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Threading;
 using Microsoft.VisualStudio.Utilities;
+using Microsoft.VisualStudio.Workspace;
+using Microsoft.VisualStudio.Workspace.Settings;
+using Microsoft.VisualStudio.Workspace.VSIntegration.Contracts;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
@@ -25,7 +31,7 @@ namespace B2VS.LSP
         {
             get
             {
-                yield return "build2"; // @NOTE: Matches to prefix used in Build2ExtensionSettings.json
+                yield return "build2"; // @NOTE: Matches to prefix used in Build2VSDefaults.json and/or? Build2Extension.pkgdef
             }
         }
 
@@ -38,19 +44,33 @@ namespace B2VS.LSP
         public event AsyncEventHandler<EventArgs> StartAsync;
         public event AsyncEventHandler<EventArgs> StopAsync;
 
+        private string _lastUsedServerPath = null;
+
+        private readonly IVsFolderWorkspaceService _workspaceService;
+        private readonly SVsServiceProvider _serviceProvider;
+
+        [ImportingConstructor]
+        public Build2LanguageClient([Import] IVsFolderWorkspaceService workspaceService, [Import] SVsServiceProvider serviceProvider)
+        {
+            _workspaceService = workspaceService;
+            _serviceProvider = serviceProvider;
+        }
+
         public async Task<Connection> ActivateAsync(CancellationToken token)
         {
             await Task.Yield();
 
+            string serverPath = GetServerPathFromConfigurationSettings();
+            var config = GetServerConfigurationSettings();
+            config.GetProperty("showConsole", out bool showConsole, false);
+
             ProcessStartInfo info = new ProcessStartInfo();
-            info.FileName = //Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Server", @"MockLanguageServer.exe");
-                // @todo: configuration
-                "C:\\Kantan\\build\\msvc-m\\build2-lsp-server\\build2-lsp-server\\build2-lsp-server.exe";
-            //info.Arguments = "bar";
+            info.FileName = serverPath;
+            info.Arguments = "";
             info.RedirectStandardInput = true;
             info.RedirectStandardOutput = true;
             info.UseShellExecute = false;
-            info.CreateNoWindow = false; // true;
+            info.CreateNoWindow = !showConsole;
 
             Process process = new Process();
             process.StartInfo = info;
@@ -65,6 +85,26 @@ namespace B2VS.LSP
 
         public async Task OnLoadedAsync()
         {
+            var workspace = _workspaceService.CurrentWorkspace;
+            var settingsMgr = await workspace.GetSettingsManagerAsync();
+            settingsMgr.OnWorkspaceSettingsChanged += async (object sender, Microsoft.VisualStudio.Workspace.Settings.WorkspaceSettingsChangedEventArgs args) =>
+            {
+                string lspServerPath = GetServerPathFromConfigurationSettings();
+
+                if (lspServerPath != _lastUsedServerPath)
+                {
+                    await StopAsync.InvokeAsync(this, EventArgs.Empty);
+
+                    _lastUsedServerPath = lspServerPath;
+                    if (lspServerPath != null)
+                    {
+                        await StartAsync.InvokeAsync(this, EventArgs.Empty);
+                    }
+                }
+
+                // @todo: would also be useful to add a watch on the file at the specified server path, and reload if it changes (after server rebuild during dev).
+            };
+
             await StartAsync.InvokeAsync(this, EventArgs.Empty);
         }
 
@@ -80,6 +120,25 @@ namespace B2VS.LSP
             {
                 FailureMessage = initializationState.StatusMessage
             };
+        }
+
+        private IWorkspaceSettings GetServerConfigurationSettings()
+        {
+            var workspace = _workspaceService.CurrentWorkspace;
+            var settings = Build2Settings.Get(workspace);
+            var result = settings.GetProperty("lsp", out IWorkspaceSettings lspSettings);
+            return lspSettings;
+        }
+
+        private string GetServerPathFromConfigurationSettings()
+        {
+            var settings = GetServerConfigurationSettings();
+            string lspServerPath = null;
+            if (settings != null)
+            {
+                settings.GetProperty("serverPath", out lspServerPath);
+            }
+            return lspServerPath;
         }
     }
 }

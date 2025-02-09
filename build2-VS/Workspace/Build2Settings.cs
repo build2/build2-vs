@@ -12,7 +12,7 @@ namespace B2VS.Workspace
     {
         const string SettingsName = "Build2VS";
 
-        public static IWorkspaceSettings get(IWorkspace workspace)
+        public static IWorkspaceSettings Get(IWorkspace workspace)
         {
             return workspace.GetSettingsManager().GetAggregatedSettings(SettingsName);
         }

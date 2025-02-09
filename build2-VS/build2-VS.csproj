@@ -83,7 +83,7 @@
     <Compile Include="Workspace\Build2Workspace.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Build2ExtensionSettings.json">
+    <Content Include="Build2VSDefaults.json">
       <IncludeInVSIX>true</IncludeInVSIX>
     </Content>
     <None Include="source.extension.vsixmanifest">

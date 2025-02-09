@@ -1,0 +1,6 @@
+{
+  "build2.maxNumberOfProblems": -1,
+  "build2.trace.server": "Verbose",
+  "lsp": {
+  }
+}
