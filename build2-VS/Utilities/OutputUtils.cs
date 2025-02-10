@@ -15,6 +15,23 @@ namespace B2VS
     {
         private static readonly Guid Build2OutputWindowPane = new Guid("{9980E4F2-35AF-4EC5-940C-CE6AFA034FB7}");
 
+        internal static IVsWindowFrame GetOutputWindow()
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+
+            var vsUiShell = ServiceProvider.GlobalProvider.GetService(typeof(SVsUIShell)) as IVsUIShell;
+            if (vsUiShell != null)
+            {
+                uint flags = (uint)__VSFINDTOOLWIN.FTW_fForceCreate;
+                if (vsUiShell.FindToolWindow(flags, VSConstants.StandardToolWindows.Output, out IVsWindowFrame windowFrame) == VSConstants.S_OK)
+                {
+                    return windowFrame;
+                }
+            }
+
+            return null;
+        }
+
         internal static IVsOutputWindowPane GetOutputWindowPane(Guid paneGuid, string nameToCreate = null)
         {
             ThreadHelper.ThrowIfNotOnUIThread();
@@ -23,15 +40,10 @@ namespace B2VS
             var outputWindow = ServiceProvider.GlobalProvider.GetService(typeof(SVsOutputWindow)) as IVsOutputWindow;
             if (outputWindow != null && ErrorHandler.Failed(outputWindow.GetPane(paneGuid, out outputPane)) && nameToCreate != null)
             {
-                IVsWindowFrame windowFrame;
-                var vsUiShell = ServiceProvider.GlobalProvider.GetService(typeof(SVsUIShell)) as IVsUIShell;
-                if (vsUiShell != null)
+                IVsWindowFrame windowFrame = GetOutputWindow();
+                if (windowFrame != null)
                 {
-                    uint flags = (uint)__VSFINDTOOLWIN.FTW_fForceCreate;
-                    if (vsUiShell.FindToolWindow(flags, VSConstants.StandardToolWindows.Output, out windowFrame) == VSConstants.S_OK)
-                    {
-                        windowFrame.Show();
-                    }
+                    windowFrame.Show();
                 }
 
                 outputWindow.CreatePane(paneGuid, nameToCreate, 1, 1);

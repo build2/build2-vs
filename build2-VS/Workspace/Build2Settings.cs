@@ -10,7 +10,7 @@ namespace B2VS.Workspace
 {
     public static class Build2Settings
     {
-        const string SettingsName = "Build2VS";
+        public const string SettingsName = "Build2VS";
 
         public static IWorkspaceSettings Get(IWorkspace workspace)
         {
