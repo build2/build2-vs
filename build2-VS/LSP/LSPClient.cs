@@ -84,7 +84,6 @@ namespace B2VS.LSP
             }
         }
 
-        private Process _activeServer = null;
         private string _lastUsedServerPath = null; // @todo: perhaps can dump this and query the above process object instead
         private InfoBarService _failureInfoBar = null;
 
@@ -100,8 +99,6 @@ namespace B2VS.LSP
 
         public async Task<Connection> ActivateAsync(CancellationToken token)
         {
-            Debug.Assert(_activeServer == null);
-
             await Task.Yield();
 
             string serverPath = GetServerPathFromConfigurationSettings();
@@ -123,16 +120,10 @@ namespace B2VS.LSP
             {
                 await OutputUtils.OutputWindowPaneAsync("build2-lsp-server launched");
 
-                _activeServer = process;
                 return new Connection(process.StandardOutput.BaseStream, process.StandardInput.BaseStream);
             }
 
             return null;
-        }
-
-        private bool isServerRunning()
-        {
-            return _activeServer != null;
         }
 
         private bool TryCreateInfoBarUI(IVsInfoBar infoBar, out IVsInfoBarUIElement uiElement)
@@ -235,14 +226,10 @@ namespace B2VS.LSP
                 if (args.Type == Build2Settings.SettingsName)
                 {
                     // @todo: use args to check if the server path specifically was changed?
-
-                    if (isServerRunning())
+                    string lspServerPath = GetServerPathFromConfigurationSettings();
+                    if (lspServerPath != _lastUsedServerPath)
                     {
-                        string lspServerPath = GetServerPathFromConfigurationSettings();
-                        if (lspServerPath != _lastUsedServerPath)
-                        {
-                            await StopAsync.InvokeAsync(this, EventArgs.Empty);
-                        }
+                        await StopAsync.InvokeAsync(this, EventArgs.Empty);
                     }
 
                     await RecheckConfigAndStartIfValidAsync();
@@ -263,8 +250,6 @@ namespace B2VS.LSP
         {
             await Task.Yield();
 
-            _activeServer = null;
-            
             return new InitializationFailureContext
             {
                 FailureMessage = initializationState.StatusMessage
