@@ -118,11 +118,12 @@ namespace B2VS.LSP
 
             if (process.Start())
             {
-                await OutputUtils.OutputWindowPaneAsync("build2-lsp-server launched");
+                await OutputUtils.OutputWindowPaneAsync("Build2 LSP server process launched");
 
                 return new Connection(process.StandardOutput.BaseStream, process.StandardInput.BaseStream);
             }
 
+            await OutputUtils.OutputWindowPaneAsync("Failed to launch Build2 LSP server process");
             return null;
         }
 
@@ -184,19 +185,26 @@ namespace B2VS.LSP
 
         private async Task RecheckConfigAndStartIfValidAsync()
         {
+            await OutputUtils.OutputWindowPaneAsync(string.Format("RecheckConfigAndStartIfValidAsync() invoked on thread {0}/{1}. Switching to main thread.", Thread.CurrentThread.ManagedThreadId, Thread.CurrentThread.Name));
+
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-            string lspServerPath = GetServerPathFromConfigurationSettings();
+            await OutputUtils.OutputWindowPaneAsync(string.Format("Invoking LSP stop event."));
+            await StopAsync.InvokeAsync(this, EventArgs.Empty);
 
+            string lspServerPath = GetServerPathFromConfigurationSettings();
+            _lastUsedServerPath = lspServerPath;
             if (File.Exists(lspServerPath))
             {
                 UpdateFailureInfoBar(null);
 
+                await OutputUtils.OutputWindowPaneAsync(string.Format("Server path is valid, invoking LSP start event."));
                 await StartAsync.InvokeAsync(this, EventArgs.Empty);
-                _lastUsedServerPath = lspServerPath;
             }
             else
             {
+                await OutputUtils.OutputWindowPaneAsync(string.Format("Server path invalid."));
+
                 string msg;
                 if (lspServerPath == "")
                 {
@@ -229,21 +237,21 @@ namespace B2VS.LSP
                     string lspServerPath = GetServerPathFromConfigurationSettings();
                     if (lspServerPath != _lastUsedServerPath)
                     {
-                        await StopAsync.InvokeAsync(this, EventArgs.Empty);
-                    }
-
-                    await RecheckConfigAndStartIfValidAsync();
+                        await OutputUtils.OutputWindowPaneAsync(string.Format("LSP server path setting change detected (old path: '{0}', new path: '{1}').", _lastUsedServerPath, lspServerPath));
+                        await RecheckConfigAndStartIfValidAsync();
+                    }                    
                 }
 
                 // @todo: would also be useful to add a watch on the file at the specified server path, and reload if it changes (after server rebuild during dev).
             };
 
+            await OutputUtils.OutputWindowPaneAsync(string.Format("Build2 LSP client loaded."));
             await RecheckConfigAndStartIfValidAsync();
         }
 
         public async Task OnServerInitializedAsync()
         {
-            await OutputUtils.OutputWindowPaneAsync("build2-lsp-server successfully initialized");
+            await OutputUtils.OutputWindowPaneAsync("Build2 LSP server successfully initialized");
         }
 
         public async Task<InitializationFailureContext> OnServerInitializeFailedAsync(ILanguageClientInitializationInfo initializationState)
