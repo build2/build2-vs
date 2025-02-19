@@ -30,7 +30,7 @@ namespace B2VS.LSP
         {
             get
             {
-                yield return "build2"; // @NOTE: Matches to prefix used in Build2VSDefaults.json and/or? Build2Extension.pkgdef
+                yield return "build2"; // @NOTE: Matches to prefix used in Build2VSDefaults.json (and user-specified VSWorkspaceSettings.json for overriding of defaults)
             }
         }
 
